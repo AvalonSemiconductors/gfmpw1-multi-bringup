@@ -1,2 +1,14 @@
-HW/*/*-backups/
-HW/*/production/
+*/*/*-backups/
+*/*/production/
+QCPU/asl/
+*.p
+*.lst
+*.bin
+*.hex
+*.class
+caravel_board/
+*.out
+gfmpw_breakout/
+*.o
+*.elf
+*.debug.txt
