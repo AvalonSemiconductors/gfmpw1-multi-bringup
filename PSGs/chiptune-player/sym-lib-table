@@ -1,0 +1,4 @@
+(sym_lib_table
+  (version 7)
+  (lib (name "wemos")(type "KiCad")(uri "${KIPRJMOD}/kicad-esp32-wemos-d1-mini/esp32-wemos-d1-mini.kicad_sym")(options "")(descr ""))
+)

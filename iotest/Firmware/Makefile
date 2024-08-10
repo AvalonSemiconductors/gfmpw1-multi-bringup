@@ -30,7 +30,7 @@ bin:  ${PATTERN:=.bin}
 
 %.bin: %.elf
 	$(TOOLCHAIN_PATH)$(TOOLCHAIN_PREFIX)-objcopy -O binary $< $@
-	java ../../Utils/ExpandROM.java $@ 4194304
+	java ../../Utils/ExpandROM.java $@ 8388608
 
 flash: blink.bin
 	sudo flashrom --programmer ch341a_spi --write expanded.bin

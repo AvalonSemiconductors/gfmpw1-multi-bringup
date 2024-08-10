@@ -1,0 +1,29 @@
+#include <stdint.h>
+
+#define IO_BASE 0x400000
+#define IO_EMU_PRINT 12
+
+#define IO_IN(port)       *(volatile uint32_t*)(IO_BASE + port)
+#define IO_OUT(port,val)  *(volatile uint32_t*)(IO_BASE + port)=(val)
+
+#define reg_sdiv (*(volatile uint32_t*)(0xFFFFFF00))
+#define reg_sdr (*(volatile uint32_t*)(0xFFFFFF04))
+#define reg_udiv (*(volatile uint32_t*)(0xFFFFFF08))
+#define reg_udr (*(volatile uint32_t*)(0xFFFFFF0C))
+#define reg_stat (*(volatile uint32_t*)(0xFFFFFF10))
+#define reg_ddra (*(volatile uint32_t*)(0xFFFFFF14))
+#define reg_porta (*(volatile uint32_t*)(0xFFFFFF18))
+#define reg_pina (*(volatile uint32_t*)(0xFFFFFF1C))
+#define reg_tdiv0 (*(volatile uint32_t*)(0xFFFFFF2C))
+#define reg_tdiv1 (*(volatile uint32_t*)(0xFFFFFF30))
+#define reg_ttop0 (*(volatile uint32_t*)(0xFFFFFF34))
+#define reg_ttop1 (*(volatile uint32_t*)(0xFFFFFF38))
+#define reg_tmr0 (*(volatile uint32_t*)(0xFFFFFF3C))
+#define reg_tmr1 (*(volatile uint32_t*)(0xFFFFFF40))
+#define reg_ivec (*(volatile uint32_t*)(0xFFFFFF20))
+#define reg_inum (*(volatile uint32_t*)(0xFFFFFF24))
+#define reg_ien (*(volatile uint32_t*)(0xFFFFFF28))
+#define reg_intclr (*(volatile uint32_t*)(0xFFFFFF44))
+#define reg_prevpc (*(volatile uint32_t*)(0xFFFFFF48))
+#define reg_chirp1 (*(volatile uint32_t*)(0xFFFFFF4C))
+#define reg_chirp2 (*(volatile uint32_t*)(0xFFFFFF50))

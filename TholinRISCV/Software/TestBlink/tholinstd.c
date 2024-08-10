@@ -125,59 +125,26 @@ char* ultoa(uint64_t s, char *buffer){
 	return buffer;
 }
 
-static const float round_nums[8] = {
-   0.5,
-   0.05,
-   0.005,
-   0.0005,
-   0.00005,
-   0.000005,
-   0.0000005,
-   0.00000005
-};
-static const float mult_nums[8] = {
-   1,
-   10,
-   100,
-   1000,
-   10000,
-   100000,
-   1000000,
-   10000000
-};
-char* dubdabx(long num, char* out, int digits) {
-	for(int i = 0; i < digits; i++) out[i] = '0'; //Placeholder
-	return out + digits;
-}
-char* ftoa(float flt, char *outbfr, unsigned int dec_digits)
-{
-	uint32_t idx;
-	float mult;
-	long wholeNum,decimalNum;
-	char *output = outbfr;
-	char tbfr[40] ;
-	if(flt < 0.0) {
-		*output++ = '-';
-		flt *= -1.0;
+char* ftoa(float flt, char *outbfr) {
+	if(flt < 0) {
+		*outbfr = '-';
+		outbfr++;
+		flt = -flt;
 	}
-
-	if (dec_digits < 8) {
-		flt += round_nums[dec_digits];
+	uint64_t fixed = (uint64_t)(((double)flt + 1e-6) * (double)0xFFFFFF);
+	uint32_t whole = fixed >> 24;
+	uint64_t fract = fixed & 0xFFFFFFUL;
+	uitoa(whole, outbfr);
+	while(*outbfr) outbfr++;
+	*outbfr = '.';
+	outbfr++;
+	for(char i = 0; i < 6; i++) {
+		fract *= 10;
+		*outbfr = (fract >> 24) + '0';
+		fract &= 0xFFFFFFUL;
+		outbfr++;
 	}
-
-	mult=mult_nums[dec_digits];
-
-	wholeNum = flt;
-	decimalNum = ((flt - wholeNum) * mult);
-	
-	strcpy(output,dubdabx(wholeNum,output,1));
-	output+=strlen(output);
-
-	if (dec_digits > 0) {
-			*output++ = '.';
-			strcpy(output,dubdabx(decimalNum,output,dec_digits));
-	}
-
+	*outbfr = 0;
 	return outbfr;
 }
 
@@ -232,7 +199,8 @@ void printf(const char* format, ...) {
 					break;
 				case 'f':
 					sf = (float)va_arg(arg, double);
-					
+					ftoa(sf, tbuff);
+					puts(tbuff);
 					break;
 			}
 			

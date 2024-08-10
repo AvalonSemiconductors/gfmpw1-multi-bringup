@@ -6,9 +6,11 @@ QCPU/asl/
 *.bin
 *.hex
 *.class
-caravel_board/
 *.out
 gfmpw_breakout/
 *.o
 *.elf
 *.debug.txt
+MC14500/Software/bin/
+MC14500/Software/obj/
+*.hexe

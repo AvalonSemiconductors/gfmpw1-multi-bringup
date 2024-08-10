@@ -1,21 +1,22 @@
 PROJECT:=baremetal
-OBJECTS:=tholinstd.o baremetal.o
+OBJECTS:=tholinstd.o i2c.o eeprom.o rtc.o baremetal.o
 TARGETS:=$(OBJECTS) $(PROJECT).elf $(PROJECT).bin $(PROJECT).debug.txt
 
 all : $(TARGETS)
 
 ARCHFLAGS:=-march=rv32im -mabi=ilp32
 
-PREFIX:=/usr/bin/riscv64-unknown-elf-
-CFLAGS:=-I.
+#PREFIX:=/usr/bin/riscv32-unknown-elf-
+PREFIX:=/home/tholin/riscv/bin/riscv32-unknown-elf-
+CFLAGS:=-I. -I../Common/
 
 CFLAGS+=-fno-stack-protector -fno-pic
 CFLAGS+=-static-libgcc -fdata-sections -ffunction-sections
 CFLAGS+=-g -O2 $(ARCHFLAGS) -static -ffreestanding
-LDFLAGS:= -T flatfile.lds -nostdlib -Wl,--gc-sections -lgcc
+LDFLAGS:= -T ../Common/flatfile.lds -nostdlib -Wl,--gc-sections -lgcc
 
 $(PROJECT).elf : $(OBJECTS)
-	$(PREFIX)as $(ARCHFLAGS) -mno-relax -o start.o start.S
+	$(PREFIX)as $(ARCHFLAGS) -mno-relax -o start.o ../Common/start.S
 	$(PREFIX)gcc -o $@ $(OBJECTS) start.o $(CFLAGS) $(LDFLAGS)
 
 $(PROJECT).debug.txt : $(PROJECT).elf

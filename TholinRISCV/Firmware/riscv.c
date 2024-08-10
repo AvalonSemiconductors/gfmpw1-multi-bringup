@@ -35,7 +35,7 @@ void configure_io() {
     //  GPIO 0 is turned off to prevent toggling the debug pin; For debug, make this an output and
     //  drive it externally to ground.
 
-    reg_mprj_io_0 = GPIO_MODE_USER_STD_INPUT_PULLUP;
+    reg_mprj_io_0 = GPIO_MODE_USER_STD_INPUT_NOPULL;
 
     // Changing configuration for IO[1-4] will interfere with programming flash. if you change them,
     // You may need to hold reset while powering up the board and initiating flash to keep the process
@@ -43,8 +43,8 @@ void configure_io() {
 
     reg_mprj_io_1 = GPIO_MODE_MGMT_STD_OUTPUT;
     reg_mprj_io_2 = GPIO_MODE_MGMT_STD_OUTPUT;
-    reg_mprj_io_3 = GPIO_MODE_MGMT_STD_INPUT_NOPULL;
-    reg_mprj_io_4 = GPIO_MODE_MGMT_STD_INPUT_NOPULL;
+    reg_mprj_io_3 = GPIO_MODE_MGMT_STD_INPUT_PULLUP;
+    reg_mprj_io_4 = GPIO_MODE_MGMT_STD_INPUT_PULLDOWN;
 
     // -------------------------------------------
 
@@ -119,7 +119,7 @@ void main()
     configure_io();
 
     reg_spi_enable = 0;
-    reg_uart_enable = 1;
+    reg_uart_enable = 0;
     reg_wb_enable = 1;
 
 	reg_mprj_settings = 2;
