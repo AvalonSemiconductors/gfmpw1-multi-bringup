@@ -7,7 +7,8 @@ If an interrupt is generated using a timer and that timer has a pre-scaler setti
 
 Severity: Low
 ### Workarounds
-The timer value can be cleared in software in the interrupt handler.
+The timer value can be cleared in software in the interrupt handler (BEFORE clearing the interrupt request).
+Or just use a pre-scaler of 1 and set the delay entirely using TOP.
 
 ## IVEC is not padded with two zeroes
 ### Description
