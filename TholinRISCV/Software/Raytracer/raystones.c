@@ -7,9 +7,14 @@
 #include "tholinstd.h"
 #include "io.h"
 
-#define F_CLK 15000000
-
+#ifdef WITH_DEPS
+#include <math.h>
+#include <stdlib.h>
+#else
 #define M_PI 3.1415926535897932384626433f
+#endif
+
+#define F_CLK 15000000
 
 /*******************************************************************/
 
@@ -20,6 +25,7 @@ static inline float min(float x, float y) { return x<y?x:y; }
 
 /*******************************************************************/
 
+#ifndef WITH_DEPS
 inline float fabs(float x) {
 	return x < 0 ? -x : x;
 }
@@ -89,6 +95,7 @@ float tan(float x) {
 float powf(float x, float y) {
 	return (float)__ieee754_pow(x, y);
 }
+#endif
 
 // If you want to adapt tinyraytracer to your own platform, there are
 // mostly two macros and two functions to write:
@@ -502,6 +509,10 @@ int putchar(int c) {
 }
 
 void isr() {
+	if(reg_inum == 3) {
+		reg_stat = 0; //to clear UHB
+		return;
+	}
 	reg_tmr1 = 0;
 	reg_intclr = 0;
 	reg_porta = reg_porta ^ 0b100000;
@@ -522,12 +533,6 @@ int main() {
 
     graphics_init();
     
-    /*bench_run = 1;
-    graphics_width  = 40;
-    graphics_height = 20;
-    printf("Running without graphic output (for accurate measurement)...\n");
-    render(spheres, nb_spheres, lights, nb_lights);*/
-    
     bench_run = 0;
     reg_tdiv0 = F_CLK;
     reg_ttop0 = 32;
@@ -535,12 +540,16 @@ int main() {
     while(reg_tmr0 != 5) {
 		if((reg_stat & 4) == 0) continue;
 		if(reg_udr == 'a') {
+			graphics_width  = 160;
+			graphics_height = 80;
 			bench_run = 1;
 			puts("Benchmark mode ACTIVATE!\r\n");
 			break;
 		}
 		printf("%d\r\n", reg_udr);
+		reg_stat = 0; //To clear UHB
 	}
+	reg_ien |= 4; //Enable UART interrupt to sinkhole all future UART chars
 
     render(spheres, nb_spheres, lights, nb_lights);
     graphics_terminate();

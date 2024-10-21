@@ -54,9 +54,9 @@ uint8_t rtc_get_time(struct Datetime *time) {
 	time->second = (rtc_raw_buff[0] >> 4) * 10 + (rtc_raw_buff[0] & 0x0F);
 	time->minute = (rtc_raw_buff[1] >> 4) * 10 + (rtc_raw_buff[1] & 0x0F);
 	if((rtc_raw_buff[2] & 64) == 64) {
-		time->hour = ((rtc_raw_buff[5] >> 2) & 0x01) * 10 + (rtc_raw_buff[2] & 0x0F);
+		time->hour = ((rtc_raw_buff[2] >> 4) & 0x01) * 10 + (rtc_raw_buff[2] & 0x0F);
 		if((rtc_raw_buff[2] & 32) == 32) time->hour += 12;
-	}else time->hour = ((rtc_raw_buff[5] >> 2) & 0x03) * 10 + (rtc_raw_buff[2] & 0x0F);
+	}else time->hour = ((rtc_raw_buff[2] >> 4) & 0x03) * 10 + (rtc_raw_buff[2] & 0x0F);
 	time->day = rtc_raw_buff[3] & 0x07;
 	
 	time->unix_time = 946681200; //1st January 2000, 00:00

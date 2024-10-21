@@ -11,7 +11,7 @@ PREFIX:=/home/tholin/riscv/bin/riscv32-unknown-elf-
 CFLAGS:=-I. -I../Common/
 
 CFLAGS+=-fno-stack-protector -fno-pic
-CFLAGS+=-static-libgcc -fdata-sections -ffunction-sections
+CFLAGS+=-static-libgcc -fdata-sections -ffunction-sections -mstrict-align
 CFLAGS+=-g -O2 $(ARCHFLAGS) -static -ffreestanding
 LDFLAGS:= -T ../Common/flatfile.lds -nostdlib -Wl,--gc-sections -lgcc
 

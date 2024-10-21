@@ -6668,10 +6668,22 @@
 		(uuid "15815be8-0f8f-42a0-9e69-8f04b3f04058")
 	)
 	(junction
+		(at 76.2 81.28)
+		(diameter 0)
+		(color 0 0 0 0)
+		(uuid "17651fa9-79a2-46e7-b9ef-26b343fa9215")
+	)
+	(junction
 		(at 229.87 104.14)
 		(diameter 0)
 		(color 0 0 0 0)
 		(uuid "2b16d583-141f-47b6-a3ab-55665cd74bd9")
+	)
+	(junction
+		(at 229.87 124.46)
+		(diameter 0)
+		(color 0 0 0 0)
+		(uuid "48ae8070-291d-4c33-8214-5c50395d3825")
 	)
 	(junction
 		(at 109.22 95.25)
@@ -6825,6 +6837,16 @@
 	)
 	(wire
 		(pts
+			(xy 78.74 81.28) (xy 76.2 81.28)
+		)
+		(stroke
+			(width 0)
+			(type default)
+		)
+		(uuid "0f825adf-4fd1-460b-89c1-9bc6dbe71812")
+	)
+	(wire
+		(pts
 			(xy 81.28 29.21) (xy 81.28 50.8)
 		)
 		(stroke
@@ -6862,6 +6884,16 @@
 			(type default)
 		)
 		(uuid "1e20b886-4551-4cdb-9f65-7d6a108808e9")
+	)
+	(wire
+		(pts
+			(xy 76.2 96.52) (xy 76.2 97.79)
+		)
+		(stroke
+			(width 0)
+			(type default)
+		)
+		(uuid "30515aa7-c77c-4ebb-ad59-d506703d4627")
 	)
 	(wire
 		(pts
@@ -6972,6 +7004,16 @@
 			(type default)
 		)
 		(uuid "585bf54c-fc2f-41c9-8d01-2773d3d162cc")
+	)
+	(wire
+		(pts
+			(xy 76.2 81.28) (xy 63.5 81.28)
+		)
+		(stroke
+			(width 0)
+			(type default)
+		)
+		(uuid "5b4c4eda-dfb4-4b13-9c6f-69baee43d760")
 	)
 	(wire
 		(pts
@@ -7125,6 +7167,16 @@
 	)
 	(wire
 		(pts
+			(xy 222.25 121.92) (xy 222.25 124.46)
+		)
+		(stroke
+			(width 0)
+			(type default)
+		)
+		(uuid "a50ed478-aa70-4b55-8f7b-9c3680f06d61")
+	)
+	(wire
+		(pts
 			(xy 177.8 92.71) (xy 175.26 92.71)
 		)
 		(stroke
@@ -7175,6 +7227,16 @@
 	)
 	(wire
 		(pts
+			(xy 76.2 81.28) (xy 76.2 88.9)
+		)
+		(stroke
+			(width 0)
+			(type default)
+		)
+		(uuid "adcac989-20c5-4edf-b1fc-620aa7b5827c")
+	)
+	(wire
+		(pts
 			(xy 25.4 20.32) (xy 63.5 20.32)
 		)
 		(stroke
@@ -7195,6 +7257,16 @@
 	)
 	(wire
 		(pts
+			(xy 222.25 124.46) (xy 229.87 124.46)
+		)
+		(stroke
+			(width 0)
+			(type default)
+		)
+		(uuid "c4bc3fdb-7165-46bd-b185-debea25916e3")
+	)
+	(wire
+		(pts
 			(xy 231.14 64.77) (xy 232.41 64.77)
 		)
 		(stroke
@@ -7212,6 +7284,16 @@
 			(type default)
 		)
 		(uuid "cc8d7572-2734-4620-bfd6-e8802698cf90")
+	)
+	(wire
+		(pts
+			(xy 222.25 113.03) (xy 222.25 114.3)
+		)
+		(stroke
+			(width 0)
+			(type default)
+		)
+		(uuid "d1a9a26c-aaad-41af-9dba-815dbc119caa")
 	)
 	(wire
 		(pts
@@ -7327,7 +7409,7 @@
 	)
 	(global_label "SCLK"
 		(shape input)
-		(at 63.5 81.28 0)
+		(at 78.74 81.28 0)
 		(fields_autoplaced yes)
 		(effects
 			(font
@@ -7337,7 +7419,7 @@
 		)
 		(uuid "011ebb92-2bb3-4820-85b7-e87ed5782810")
 		(property "Intersheetrefs" "${INTERSHEET_REFS}"
-			(at 71.2628 81.28 0)
+			(at 86.5028 81.28 0)
 			(effects
 				(font
 					(size 1.27 1.27)
@@ -12367,6 +12449,76 @@
 		)
 	)
 	(symbol
+		(lib_id "Device:C")
+		(at 76.2 92.71 0)
+		(unit 1)
+		(exclude_from_sim no)
+		(in_bom yes)
+		(on_board yes)
+		(dnp no)
+		(fields_autoplaced yes)
+		(uuid "18e64da0-7343-4ada-b16d-3316c4462776")
+		(property "Reference" "C6"
+			(at 80.01 91.44 0)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+				(justify left)
+			)
+		)
+		(property "Value" "22pF"
+			(at 80.01 93.98 0)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+				(justify left)
+			)
+		)
+		(property "Footprint" "Capacitor_THT:C_Disc_D3.8mm_W2.6mm_P2.50mm"
+			(at 77.1652 96.52 0)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+				(hide yes)
+			)
+		)
+		(property "Datasheet" "~"
+			(at 76.2 92.71 0)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+				(hide yes)
+			)
+		)
+		(property "Description" ""
+			(at 76.2 92.71 0)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+				(hide yes)
+			)
+		)
+		(pin "2"
+			(uuid "f8a9c52b-67e6-4753-bde8-64231f96a363")
+		)
+		(pin "1"
+			(uuid "9701ed18-d357-4b6d-839e-ef244d7ceca2")
+		)
+		(instances
+			(project "gfmpw1-tholin-riscv"
+				(path "/d1b92762-5209-489f-a507-c49e250c1da4"
+					(reference "C6")
+					(unit 1)
+				)
+			)
+		)
+	)
+	(symbol
 		(lib_id "power:+5V")
 		(at 62.23 151.13 0)
 		(unit 1)
@@ -13895,6 +14047,72 @@
 		)
 	)
 	(symbol
+		(lib_id "power:+3V3")
+		(at 222.25 113.03 0)
+		(unit 1)
+		(exclude_from_sim no)
+		(in_bom yes)
+		(on_board yes)
+		(dnp no)
+		(fields_autoplaced yes)
+		(uuid "4c330b83-2a35-49a4-a670-8aa51377f507")
+		(property "Reference" "#PWR060"
+			(at 222.25 116.84 0)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+				(hide yes)
+			)
+		)
+		(property "Value" "+3V3"
+			(at 222.25 107.95 0)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+			)
+		)
+		(property "Footprint" ""
+			(at 222.25 113.03 0)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+				(hide yes)
+			)
+		)
+		(property "Datasheet" ""
+			(at 222.25 113.03 0)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+				(hide yes)
+			)
+		)
+		(property "Description" ""
+			(at 222.25 113.03 0)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+				(hide yes)
+			)
+		)
+		(pin "1"
+			(uuid "a3bbf26c-bb6d-4205-b89b-68c018b22494")
+		)
+		(instances
+			(project "gfmpw1-tholin-riscv"
+				(path "/d1b92762-5209-489f-a507-c49e250c1da4"
+					(reference "#PWR060")
+					(unit 1)
+				)
+			)
+		)
+	)
+	(symbol
 		(lib_id "power:GND")
 		(at 205.74 87.63 0)
 		(unit 1)
@@ -14589,6 +14807,76 @@
 			(project "gfmpw1-tholin-riscv"
 				(path "/d1b92762-5209-489f-a507-c49e250c1da4"
 					(reference "#PWR039")
+					(unit 1)
+				)
+			)
+		)
+	)
+	(symbol
+		(lib_id "Device:R")
+		(at 222.25 118.11 0)
+		(unit 1)
+		(exclude_from_sim no)
+		(in_bom yes)
+		(on_board yes)
+		(dnp no)
+		(fields_autoplaced yes)
+		(uuid "70934bd1-36c0-4b16-a8aa-0a5d37cd1aa4")
+		(property "Reference" "R6"
+			(at 224.79 116.84 0)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+				(justify left)
+			)
+		)
+		(property "Value" "10K"
+			(at 224.79 119.38 0)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+				(justify left)
+			)
+		)
+		(property "Footprint" "Resistor_THT:R_Axial_DIN0204_L3.6mm_D1.6mm_P7.62mm_Horizontal"
+			(at 220.472 118.11 90)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+				(hide yes)
+			)
+		)
+		(property "Datasheet" "~"
+			(at 222.25 118.11 0)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+				(hide yes)
+			)
+		)
+		(property "Description" ""
+			(at 222.25 118.11 0)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+				(hide yes)
+			)
+		)
+		(pin "2"
+			(uuid "65d252e3-d4e3-44d7-871c-b237dc8548fe")
+		)
+		(pin "1"
+			(uuid "cc5760fe-13ec-4d43-8a18-16492775f490")
+		)
+		(instances
+			(project "gfmpw1-tholin-riscv"
+				(path "/d1b92762-5209-489f-a507-c49e250c1da4"
+					(reference "R6")
 					(unit 1)
 				)
 			)
@@ -18776,6 +19064,72 @@
 			(project "gfmpw1-tholin-riscv"
 				(path "/d1b92762-5209-489f-a507-c49e250c1da4"
 					(reference "#PWR043")
+					(unit 1)
+				)
+			)
+		)
+	)
+	(symbol
+		(lib_id "power:GND")
+		(at 76.2 97.79 0)
+		(unit 1)
+		(exclude_from_sim no)
+		(in_bom yes)
+		(on_board yes)
+		(dnp no)
+		(fields_autoplaced yes)
+		(uuid "f7b67365-2f0e-48c4-9b90-dd4bf0308c9a")
+		(property "Reference" "#PWR061"
+			(at 76.2 104.14 0)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+				(hide yes)
+			)
+		)
+		(property "Value" "GND"
+			(at 76.2 102.87 0)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+			)
+		)
+		(property "Footprint" ""
+			(at 76.2 97.79 0)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+				(hide yes)
+			)
+		)
+		(property "Datasheet" ""
+			(at 76.2 97.79 0)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+				(hide yes)
+			)
+		)
+		(property "Description" ""
+			(at 76.2 97.79 0)
+			(effects
+				(font
+					(size 1.27 1.27)
+				)
+				(hide yes)
+			)
+		)
+		(pin "1"
+			(uuid "76ee435b-f821-411c-8ecd-a353766d7d2a")
+		)
+		(instances
+			(project "gfmpw1-tholin-riscv"
+				(path "/d1b92762-5209-489f-a507-c49e250c1da4"
+					(reference "#PWR061")
 					(unit 1)
 				)
 			)

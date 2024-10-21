@@ -6,7 +6,7 @@
 
 uint8_t eth_raw_packet[sizeof(EthernetFrame) + 16] __attribute__ ((aligned (4)));
 
-void eth_parse_incomming() {
+void eth_parse_incoming() {
 	EthernetFrame result;
 	EthernetFrame *raw = (EthernetFrame*)eth_raw_packet;
 	raw->type = SWAP16(raw->type);
@@ -14,7 +14,7 @@ void eth_parse_incomming() {
 		case ETHERNET_TYPE_IP:
 			break;
 		case ETHERNET_TYPE_ARP:
-			arp_parse_incomming(raw);
+			arp_parse_incoming(raw);
 			break;
 	}
 }

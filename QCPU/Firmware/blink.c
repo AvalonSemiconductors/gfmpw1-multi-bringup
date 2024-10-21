@@ -81,13 +81,13 @@ void configure_io() {
     reg_mprj_io_34 = GPIO_MODE_USER_STD_INPUT_PULLDOWN;
     reg_mprj_io_35 = GPIO_MODE_USER_STD_OUTPUT;
     reg_mprj_io_36 = GPIO_MODE_USER_STD_OUTPUT;
-    reg_mprj_io_37 = GPIO_MODE_MGMT_STD_OUTPUT;
+    reg_mprj_io_37 = GPIO_MODE_USER_STD_OUTPUT;
 
     // Initiate the serial transfer to configure IO
     reg_mprj_xfer = 1;
     while (reg_mprj_xfer == 1);
-    reg_mprj_datah = 0x20;
-    reg_mprj_datal = 0;
+    reg_mprj_datah = 0;
+    reg_mprj_datal = 0x02;
 }
 
 void delay(const uint32_t d) {
@@ -116,7 +116,7 @@ void main()
     reg_gpio_oeb = 0;
 
     reg_spi_enable = 0;
-    reg_uart_enable = 1;
+    reg_uart_enable = 0;
     reg_wb_enable = 1;
 
 	reg_spictrl = (1 << 31) | (2 << 16); //Less wait states
@@ -133,12 +133,13 @@ void main()
 	//Setup for timing-sensitive code
 	//and EXACT padding so said code gets pre-fetched entirely
 	asm volatile("nop");
+	asm volatile("nop");
 	asm volatile("lui	a5,0x30040");
 	asm volatile("li	a4,16");
 	asm volatile("lui	t1,0x30080");
-	asm volatile("__l2: li t2, 18295");
+	asm volatile("__l2: li t2, 18247");
 	asm volatile("lui	t3,0x26000");
-	asm volatile("addi	t3,t3,16");
+	asm volatile("addi	t3,t3,12");
 	asm volatile("nop");
 	asm volatile("nop");
 	asm volatile("nop");

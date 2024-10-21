@@ -3,7 +3,7 @@
 #include "ethernet.h"
 #include "arp.h"
 
-void arp_parse_incomming(EthernetFrame* raw) {
+void arp_parse_incoming(EthernetFrame* raw) {
 	ArpHeader hdr;
 	uint8_t* p = raw->payload;
 	hdr.htype = EXTRACT_UINT16(p);

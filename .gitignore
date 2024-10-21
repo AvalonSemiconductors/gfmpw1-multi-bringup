@@ -5,6 +5,7 @@ QCPU/asl/
 *.lst
 *.bin
 *.hex
+*.hexe
 *.class
 *.out
 gfmpw_breakout/

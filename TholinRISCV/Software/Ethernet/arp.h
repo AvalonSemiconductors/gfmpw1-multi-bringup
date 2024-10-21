@@ -13,6 +13,6 @@ struct ArpHeader {
 	uint32_t tpa;
 };
 
-void arp_parse_incomming(EthernetFrame* raw);
+void arp_parse_incoming(EthernetFrame* raw);
 
 #endif
