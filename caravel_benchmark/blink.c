@@ -1,101 +1,50 @@
-/* A port of Dmitry Sokolov's tiny raytracer to C (done by Bruno Levy) and to Tholin’s RISC-V */
-/* Completely dependency-less using built-in implementations of used maths functions */
-/* Sents generated image over UART                                       */
-/* Original tinyraytracer: https://github.com/ssloy/tinyraytracer        */
+#include <defs.h>
 
-#include <stdint.h>
+#include "e_pow.h"
+#include "custom_math.h"
 #include "tholinstd.h"
-#include "io.h"
 
-#ifdef WITH_DEPS
-#include <math.h>
-#include <stdlib.h>
-#else
-#define M_PI 3.1415926535897932384626433f
+//Clock speed of the chip must be specified here, for correct Raystones score calculation
+#define F_CLK 10000000
+
+//Define that toggles code specific to my GFMPW-1 ICs
+//If set:
+// - Ensures design in user area is in idle state
+// - Enables additional debugging to make sure all is O.K.
+// - Makes use of custom peripherals on the wishbone bus
+//Undefining this still yields working code, but with some additional limitations
+#define THOLIN_SILICON
+
+#ifdef THOLIN_SILICON
+#define reg_mprj_counter_addr_multi 0x30040000
+#define reg_mprj_counter_addr_as 0x30400000
+#define reg_mprj_proj_sel (*(volatile uint32_t*)0x30080000)
+#define reg_mprj_settings (*(volatile uint32_t*)0x30020000)
+#define reg_mprj_sram (*(volatile uint32_t*)0x30010000)
+#define reg_mprj_debug_opts_as2650 (*(volatile uint32_t*)0x30200000)
 #endif
 
-#define F_CLK 15000000
+#ifdef THOLIN_SILICON
+//Both of my designs have a simple up-counter connected to the wishbone bus
+//But they’re at different addresses
+volatile uint32_t *counter_address;
+volatile uint8_t is_as2650;
+#endif
+//To handle 32-bit timer overflows (the render can take a while)
+volatile uint32_t last_timer_val;
+volatile uint32_t timer_upper;
 
-/*******************************************************************/
+//Workaround to funni cache bug
+void wb_cache_workaround() { asm volatile("nop\nnop\nnop\nnop\nnop\nnop\nnop\nnop\nnop\nnop\nnop\nnop\nnop\nnop\nnop\nnop\nnop\nnop\nnop\nnop\nnop"); }
+
+/*
+ * That’s it for GFMPW-1 specific code for now. Scroll down.
+ */
 
 typedef int BOOL;
 
 static inline float max(float x, float y) { return x>y?x:y; }
 static inline float min(float x, float y) { return x<y?x:y; }
-
-/*******************************************************************/
-
-#ifndef WITH_DEPS
-inline float fabs(float x) {
-	return x < 0 ? -x : x;
-}
-
-float sqrtf(float x) {
-	if(sizeof(float) == 4) {
-		float x2,y = 0;
-		uint32_t i;
-		
-		if(x == 0) return 0;
-		x2 = x * 0.5f;
-		i = *(uint32_t *)&x;
-		i = 0x5f3759df - (i >> 1);
-		y = *(float *)&i;
-		y *= 1.5f - (x2 * y * y);
-		y *= 1.5f - (x2 * y * y);
-		y *= 1.5f - (x2 * y * y);
-		return 1.0f / y;
-	}else {
-		printf("Float is not 4 bytes\r\n");
-		reg_ien = 0;
-		while(1);
-	}
-}
-
-float cosf(float x) {
-	int32_t div;
-	uint8_t sign;
-	uint8_t i;
-	float result,inter,num,comp,den;
-	div = (int32_t)(x / M_PI);
-	x = x - (div * M_PI);
-	sign = 1;
-	sign = (div & 1) != 0;
-	
-	result = 1.0;
-	inter = 1.0;
-	num = x * x;
-	char flag = 1;
-	for(i = 1; i <= 8; i++) {
-		comp = 2.0 * i;
-		den = comp * (comp - 1.0);
-		inter *= num / den;
-		if(flag) result -= inter;
-		else result += inter;
-		flag = !flag;
-	}
-	return sign ? -result : result;
-}
-
-float sinf(float x) {
-	return cosf(x - M_PI * 0.5f);
-}
-
-float tan(float x) {
-	return sinf(x) / cosf(x);
-}
-
-/* POW is taken from Oracle’s freely distributable math library */
-
-#define __HI(x) *(1+(int32_t*)&x)
-#define __LO(x) (*(int32_t*)&x)
-
-#include "s_scalbn.c"
-#include "e_pow.c"
-
-float powf(float x, float y) {
-	return (float)__ieee754_pow(x, y);
-}
-#endif
 
 // If you want to adapt tinyraytracer to your own platform, there are
 // mostly two macros and two functions to write:
@@ -144,13 +93,13 @@ static inline void graphics_terminate() {
 
 // Replace with your own code.
 void graphics_set_pixel(int x, int y, float r, float g, float b) {
-	if(bench_run) return;
-	if(x != lastx + 1 || y != lasty) {
+	uint8_t changed = x != lastx + 1 || y != lasty;
+	if(changed) {
 		printf("%%%d-%d-", x, y);
 	}
+	if(!bench_run || changed) printf("%f-%f-%f\r\n", r, g, b);
 	lastx = x;
 	lasty = y;
-	printf("%f-%f-%f\r\n", r, g, b);
 }
 
 
@@ -171,9 +120,18 @@ static inline void stats_end_pixel() {
 // Begins statistics collection for current frame.
 // Leave emtpy if not needed.
 static inline void stats_begin_frame() {
-	reg_tdiv0 = F_CLK/1000;
-	reg_ttop0 = 0xFFFFFFFF;
-	reg_tmr0 = 0;
+#ifdef THOLIN_SILICON
+	*counter_address = 0;
+	wb_cache_workaround();
+#else
+	reg_timer0_config = 0;
+	reg_timer0_data = 0;
+	reg_timer0_value = 0;
+	reg_timer0_data_periodic = 0xFFFFFFFF;
+	reg_timer0_config = 1;
+#endif
+	last_timer_val = 0;
+	timer_upper = 0;
 	lastx = lasty = 0xFFFFFFFF;
 }
 
@@ -183,7 +141,22 @@ static inline void stats_begin_frame() {
 static inline void stats_end_frame() {
    graphics_terminate();
    uint64_t pixels     = graphics_width * graphics_height;
-   float RAYSTONES     = (float)pixels / ((float)reg_tmr0 / 1000.0f) / (F_CLK / 1000000);
+   uint64_t timer_reading;
+#ifdef THOLIN_SILICON
+	uint32_t capture = *counter_address;
+	wb_cache_workaround();
+	if(capture < last_timer_val) timer_upper++;
+	timer_reading = (uint64_t)timer_upper << 32;
+	timer_reading |= capture;
+#else
+	reg_timer0_update = 1;
+	uint32_t capture = 0xFFFFFFFF - reg_timer0_value;
+	if(capture < last_timer_val) timer_upper++;
+	timer_reading = (uint64_t)timer_upper << 32;
+	timer_reading |= capture;
+#endif
+	printf("Timer capture=%lu\r\n", timer_reading);
+   float RAYSTONES     = (float)pixels / ((float)timer_reading / F_CLK) / (F_CLK / 1000000);
    printf("RAYSTONES=%f\r\n", RAYSTONES);
 }
 
@@ -422,7 +395,7 @@ vec3 cast_ray(
 	        );
     float def = material.specular_exponent;
     if(abc > 0.0f && def > 0.0f) {
-      specular_light_intensity += powf(abc,def)*lights[i].intensity;
+      //specular_light_intensity += powf(abc,def)*lights[i].intensity;
     }
   }
   vec3 result = vec3_scale(
@@ -440,6 +413,23 @@ vec3 cast_ray(
 static inline void render_pixel(
     int i, int j, Sphere* spheres, int nb_spheres, Light* lights, int nb_lights
 ) {
+	
+#ifdef THOLIN_SILICON
+{
+	uint32_t capture = *counter_address;
+	wb_cache_workaround();
+	if(capture < last_timer_val) timer_upper++;
+	last_timer_val = capture;
+}
+#else
+{
+	reg_timer0_update = 1;
+	uint32_t capture = 0xFFFFFFFF - reg_timer0_value;
+	if(capture < last_timer_val) timer_upper++;
+	last_timer_val = capture;
+}
+#endif
+	
    const float fov  = M_PI/3.;
    stats_begin_pixel();
    float dir_x =  (i + 0.5) - graphics_width/2.;
@@ -455,20 +445,12 @@ static inline void render_pixel(
 
 void render(Sphere* spheres, int nb_spheres, Light* lights, int nb_lights) {
    stats_begin_frame();
-#ifdef graphics_double_lines  
-   for (int j = 0; j<graphics_height; j+=2) { 
-      for (int i = 0; i<graphics_width; i++) {
-	  render_pixel(i,j  ,spheres,nb_spheres,lights,nb_lights);
-	  render_pixel(i,j+1,spheres,nb_spheres,lights,nb_lights);	  
-      }
-   }
-#else
-   for (int j = 0; j<graphics_height; j++) { 
-      for (int i = 0; i<graphics_width; i++) {
+   for(int j = 0; j<graphics_height; j++) {
+      for(int i = 0; i<graphics_width; i++) {
+		  reg_gpio_out ^= 1;
 	  render_pixel(i,j  ,spheres,nb_spheres,lights,nb_lights);
       }
    }
-#endif
    stats_end_frame();
 }
 
@@ -502,58 +484,202 @@ void init_scene() {
     lights[2] = make_Light(make_vec3( 30, 20,  30), 1.7);
 }
 
+/*
+ * CARAVEL-SPECIFIC STUFF
+ */
+
+void configure_io() {
+	reg_mprj_io_0 = GPIO_MODE_MGMT_STD_INPUT_PULLDOWN;
+
+	reg_mprj_io_1 = GPIO_MODE_MGMT_STD_OUTPUT;
+	reg_mprj_io_2 = GPIO_MODE_MGMT_STD_INPUT_PULLDOWN;
+	reg_mprj_io_3 = GPIO_MODE_MGMT_STD_INPUT_PULLUP;
+	reg_mprj_io_4 = GPIO_MODE_MGMT_STD_INPUT_PULLDOWN;
+
+	reg_mprj_io_5 = GPIO_MODE_MGMT_STD_INPUT_PULLUP;     // UART Rx
+	reg_mprj_io_6 = GPIO_MODE_MGMT_STD_OUTPUT;           // UART Tx
+	reg_mprj_io_7 = GPIO_MODE_USER_STD_OUTPUT;
+	reg_mprj_io_8 = GPIO_MODE_USER_STD_OUTPUT;
+	reg_mprj_io_9 = GPIO_MODE_USER_STD_OUTPUT;
+	reg_mprj_io_10 = GPIO_MODE_USER_STD_OUTPUT;
+	reg_mprj_io_11 = GPIO_MODE_USER_STD_OUTPUT;
+	reg_mprj_io_12 = GPIO_MODE_USER_STD_OUTPUT;
+	reg_mprj_io_13 = GPIO_MODE_USER_STD_OUTPUT;
+	reg_mprj_io_14 = GPIO_MODE_USER_STD_OUTPUT;
+	reg_mprj_io_15 = GPIO_MODE_USER_STD_OUTPUT;
+	reg_mprj_io_16 = GPIO_MODE_USER_STD_OUTPUT;
+	reg_mprj_io_17 = GPIO_MODE_USER_STD_OUTPUT;
+	reg_mprj_io_18 = GPIO_MODE_USER_STD_OUTPUT;
+
+	reg_mprj_io_19 = GPIO_MODE_USER_STD_OUTPUT;
+	reg_mprj_io_20 = GPIO_MODE_USER_STD_OUTPUT;
+	reg_mprj_io_21 = GPIO_MODE_USER_STD_OUTPUT;
+	reg_mprj_io_22 = GPIO_MODE_USER_STD_OUTPUT;
+	reg_mprj_io_23 = GPIO_MODE_USER_STD_OUTPUT;
+	reg_mprj_io_24 = GPIO_MODE_USER_STD_OUTPUT;
+	reg_mprj_io_25 = GPIO_MODE_USER_STD_OUTPUT;
+	reg_mprj_io_26 = GPIO_MODE_USER_STD_OUTPUT;
+	reg_mprj_io_27 = GPIO_MODE_USER_STD_OUTPUT;
+	reg_mprj_io_28 = GPIO_MODE_USER_STD_OUTPUT;
+	reg_mprj_io_29 = GPIO_MODE_USER_STD_OUTPUT;
+	reg_mprj_io_30 = GPIO_MODE_USER_STD_OUTPUT;
+	reg_mprj_io_31 = GPIO_MODE_USER_STD_OUTPUT;
+	reg_mprj_io_32 = GPIO_MODE_USER_STD_OUTPUT;
+	reg_mprj_io_33 = GPIO_MODE_USER_STD_OUTPUT;
+	reg_mprj_io_34 = GPIO_MODE_USER_STD_OUTPUT;
+	reg_mprj_io_35 = GPIO_MODE_USER_STD_OUTPUT;
+	reg_mprj_io_36 = GPIO_MODE_USER_STD_OUTPUT;
+	reg_mprj_io_37 = GPIO_MODE_USER_STD_OUTPUT;
+
+	// Initiate the serial transfer to configure IO
+	reg_mprj_xfer = 1;
+	while (reg_mprj_xfer == 1);
+}
+
+void delay(const int d) {
+	/* Configure timer for a single-shot countdown */
+	reg_timer0_data_periodic = 0;
+	reg_timer0_config = 0;
+	reg_timer0_data = d;
+	reg_timer0_config = 1;
+	// Loop, waiting for value to reach zero
+	reg_timer0_update = 1;  // latch current value
+	while(reg_timer0_value > 0) {
+		reg_timer0_update = 1;
+	}
+}
+
+struct la_reading {
+	uint32_t TEMP;
+	uint8_t halted;
+	uint8_t r3;
+	uint8_t r2;
+	uint8_t r1;
+	uint8_t r0;
+	uint8_t gpios;
+};
+
+void la_read(struct la_reading *res) {
+	reg_la_sample = 1;
+	uint64_t raw = reg_la2_data_in;
+	raw |= (uint64_t)reg_la3_data_in << 32;
+	res->TEMP = raw >> 33;
+	res->r0 = raw;
+	res->r1 = raw >> 8;
+	res->r2 = raw >> 16;
+	res->r3 = raw >> 24;
+	res->halted = (raw >> 32) & 1;
+	res->gpios = raw >> 56;
+}
+
 int putchar(int c) {
-	while((reg_stat & 2) != 0) {}
-	reg_udr = c;
-	return 0;
+	reg_uart_data = c;
+	while(reg_uart_txfull == 1);
+	return c;
 }
 
-void isr() {
-	if(reg_inum == 3) {
-		uint8_t val = reg_udr;
-		reg_stat = val; //to clear UHB
-		return;
-	}
-	reg_tmr1 = 0;
-	reg_intclr = 0;
-	reg_porta = reg_porta ^ 0b100000;
-}
+void main() {
+	reg_gpio_mode1 = 1;
+	reg_gpio_mode0 = 0;
+	reg_gpio_ien = 1;
+	reg_gpio_oeb = 0;
+	reg_gpio_out = 0;
 
-int main() {
-	reg_udiv = F_CLK / 38400 - 1;
-	reg_ddra = 0b110001;
-	reg_porta = 0b010001;
+	reg_wb_enable = 1;
+	configure_io();
+	reg_uart_enable = 1;
 	
-	reg_tdiv1 = F_CLK/10000;
-	reg_ttop1 = 10000;
-	reg_tmr1 = 0;
-	reg_ien = 0b010;
-	asm volatile(".word 0x00700073"); //sei
-    
-    bench_run = 0;
-    reg_tdiv0 = F_CLK;
-    reg_ttop0 = 32;
-    reg_tmr0 = 0;
-    while(reg_tmr0 != 5) {
-		if((reg_stat & 4) == 0) continue;
-		if(reg_udr == 'a') {
-			graphics_width  = 80;
-			graphics_height = 40;
-			bench_run = 1;
-			puts("Benchmark mode ACTIVATE!\r\n");
-			break;
-		}
-		printf("%d\r\n", reg_udr);
-		reg_stat = 0; //To clear UHB
-	}
-	reg_ien |= 4; //Enable UART interrupt to sinkhole all future UART chars
-	
-    init_scene();
-    graphics_init();
+	printf("Proj. ID: %x\r\n", reg_hkspi_user_id);
 
-    render(spheres, nb_spheres, lights, nb_lights);
-    graphics_terminate();
-    
-    reg_ttop1 = 100000;
-    return 0;
+#ifdef THOLIN_SILICON
+	is_as2650 = reg_hkspi_user_id == 0x5EEC8018;
+	if(is_as2650) {
+		//Its the AS2650-2 die
+		reg_la0_oenb = reg_la1_oenb = reg_la0_iena = reg_la1_iena = reg_la2_iena = reg_la2_oenb = reg_la3_iena = reg_la3_oenb = 0x00000000;
+		counter_address = (volatile uint32_t*)reg_mprj_counter_addr_as; //Counter at this address
+		reg_mprj_debug_opts_as2650 = (1 << 4) | (1 << 5); //Force reset on the AS2650
+	}else {
+		//Its the multi-project die
+		reg_la0_oenb = reg_la1_oenb = reg_la0_iena = reg_la1_iena = reg_la2_iena = reg_la2_oenb = reg_la3_iena = reg_la3_oenb = 0xFFFFFFFF;
+		counter_address = (volatile uint32_t*)reg_mprj_counter_addr_multi; //Counter at that address
+		reg_mprj_proj_sel = 0b0000111;
+		wb_cache_workaround();
+		reg_mprj_settings = (10000000/115200)-1; //TEST
+	}
+	wb_cache_workaround();
+#else
+	reg_la0_oenb = reg_la1_oenb = reg_la0_iena = reg_la1_iena = 0xFFFFFFFF;
+#endif
+	
+	delay(8500000); //Allow HKSPI time to take control - things may go wrong from here on out
+	
+	reg_spictrl = (1 << 31); //Least possible number of wait states (0) - hope this won’t break anything!
+	
+#ifdef THOLIN_SILICON
+	*counter_address = 0;
+	wb_cache_workaround();
+	//Obtain time measurement, test
+	printf("Timer test: *%x = %x\r\n", (uint32_t)counter_address, *counter_address);
+	wb_cache_workaround();
+	if(*counter_address == 0) {
+		printf("Timer not working. Aborting.\r\n");
+		while(1);
+	}
+	//La test
+	if(is_as2650) {
+		struct la_reading reading;
+		la_read(&reading);
+		printf("LA Test: %x %x %x %x %x\r\n", reading.TEMP, reading.r0, reading.r1, reading.r2, reading.r3);
+	}
+#else
+	reg_timer0_config = 0;
+	reg_timer0_data = 0;
+	reg_timer0_value = 0;
+	reg_timer0_data_periodic = 0xFFFFFFFF;
+	reg_timer0_config = 1;
+	asm volatile("nop");
+	asm volatile("nop");
+	asm volatile("nop");
+	asm volatile("nop");
+	asm volatile("nop");
+	asm volatile("nop");
+	asm volatile("nop");
+	asm volatile("nop");
+	asm volatile("nop");
+	reg_timer0_update = 1;
+	//Obtain time measurement, test
+	printf("Timer test: %x\r\n", 0xFFFFFFFF - reg_timer0_value);
+#endif
+	
+	//You have to send a character 'a' over the UART before the CPU gets to this point to actually render out the image
+	//It defaults to benchmark mode otherwise
+	//Benchmark mode = reduced render resolution, disable actually outputting the image
+	bench_run = 0;
+	uint8_t rec = reg_uart_data;
+	if(rec != 'a') {
+		puts("Benchmark mode ACTIVATE!\r\n");
+		graphics_width  = 80;
+		graphics_height = 40;
+		bench_run = 1;
+	}else {
+		graphics_width = 640;
+		graphics_height = 480;
+	}
+	
+	//float f1 = 3.14159;
+	//float f2 = 2;
+	//f2 = f1 / f2 + f1;
+	//printf("aaaa\r\n%f\r\n", f2);
+	
+	init_scene();
+	graphics_init();
+	render(spheres, nb_spheres, lights, nb_lights);
+	graphics_terminate();
+	
+	//We’re done, blink GPIO forever
+	while(1) {
+		reg_gpio_out ^= 1;
+		delay(2000000);
+	}
 }
+
