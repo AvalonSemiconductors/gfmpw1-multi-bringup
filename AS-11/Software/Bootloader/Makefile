@@ -1,23 +1,20 @@
-TOOLCHAIN = /home/tholin/Desktop/pdp11-toolchain/install/bin
+ASL = ../../../../asl-avalonsemi/asl
+P2BIN = ../../../../asl-avalonsemi/p2bin
+ARCH = AS-11
 
-CC = $(TOOLCHAIN)/pdp11-aout-gcc
-LD = $(TOOLCHAIN)/pdp11-aout-ld
-AS = $(TOOLCHAIN)/pdp11-aout-as
+%.p: %.asm
+	$(ASL) -L -cpu $(ARCH) $<
 
-LDFLAGS += -nostdlib --strip-all --oformat=binary --script=stand.ldscript -Ttext 0x0 -M
+%.bin: %.p
+	$(P2BIN) $<
 
-all: boot_data.h
-
-boot.o: boot.s
-	$(AS) -o boot.o boot.s
-
-boot: boot.o
-	$(LD) -o BOOT $(LDFLAGS) boot.o
+boot: boot.bin
+	java ../../../Utils/ToVerilogHex.java boot.bin BOOT.txt 16384
+	java ../../../Utils/ToConstArray.java boot.bin
 
 clean:
-	rm -rf *.o boot_data.h BOOT
+	rm -rf *.bin *.p *.lst
 
-boot_data.h: boot
-	java ../../../Utils/ToConstArray.java BOOT > boot_data.h
+all: clean boot
 
-.PHONY: all echo clean
+.PHONY: all

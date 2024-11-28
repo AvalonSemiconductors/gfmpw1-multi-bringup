@@ -117,7 +117,6 @@ int main(void) {
 		if(g > 1) g = 1;
 		if(b > 1) b = 1;
 		uint8_t* base = image + (posy * img_width + posx) * 3;
-		*base = (uint8_t)(r * 255);
 		base++;
 		*base = (uint8_t)(g * 255);
 		base++;

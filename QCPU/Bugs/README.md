@@ -16,3 +16,15 @@ During the initialization of the 25Qxx into quad mode, the BDIR signal is high e
 Severity: Low
 ### Workarounds
 The `qcpu_eval_board` KiCad project describes a workaround using a 74HC74 and AND gate that forces BDIR low after power-up until the first time it actually transitions low, at which point it resumes behaving as normal.
+
+## External interrupt is dropped if timer interrupt is pending
+### Description
+If both interrupts are pending at the beginning of a machine cycle, the timer interrupt is handled correctly, but the external interrupt is dropped, and never handled.
+
+Severity: Medium
+
+## Interrupt requests are dropped while inside an interrupt handler
+### Description
+While the CPU is executing code inside an interrupt handler, all incoming interrupts are immediatelly dropped instead of delayed, as intended.
+
+Severity: Medium

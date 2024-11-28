@@ -472,11 +472,11 @@ void render(Sphere* spheres, int nb_spheres, Light* lights, int nb_lights) {
    stats_end_frame();
 }
 
-int nb_spheres = 4;
-Sphere spheres[4];
+const int nb_spheres = 4;
+static Sphere spheres[4];
 
-int nb_lights = 3;
-Light lights[3];
+const int nb_lights = 3;
+static Light lights[3];
 
 void init_scene() {
     Material ivory = make_Material(

@@ -49,6 +49,8 @@ assign io_in[15:0] = RAM[addr_latch[15:1]] & ~{16{OEB | !BDIR}};
 
 always @(posedge clk) if(ALE) addr_latch <= db_out;
 
+always @(negedge clk) if(HALTD) $finish();
+
 always @(negedge WEB) begin
 	RAM[addr_latch[15:1]] <= db_out;
 end

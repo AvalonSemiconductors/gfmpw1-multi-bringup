@@ -25,7 +25,7 @@ int main(int argc, char** argv, char** env) {
 	Verilated::timeInc(1);
 	top.eval();
 	unsigned long counter = 0;
-	while(!Verilated::gotFinish() && counter < 80850) {
+	while(!Verilated::gotFinish() && counter < 2000) {
 		top.clk = !top.clk;
 		Verilated::timeInc(1);
 		top.eval();
