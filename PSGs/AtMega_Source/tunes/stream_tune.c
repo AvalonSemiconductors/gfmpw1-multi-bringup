@@ -9,32 +9,32 @@
 #include <errno.h>
 
 static struct argp_option options[] = {
-	{ "if", 'i', "FILE", 0, "Input file" },
+	{ "if", 'i', "FILE", 0, "Input file."},
+	{ "port", 'p', "FILE", 0, "Port."},
 	{ "stereo", 's', 0, 0, "Stereo SID file"},
 	{ "div", 'd', 0, 0, "Delay times are just too long!"},
-	{ "port", 'p', "FILE", 0, "UART port" },
 	{ 0 }
 };
 
 struct arguments {
+	int stereo;
 	char *input_file;
 	char *port;
-	int stereo;
 	int div;
 };
 
 static error_t parse_opt(int key, char *arg, struct argp_state *state) {
 	struct arguments *arguments = state->input;
-	
+
 	switch(key) {
+		case 's':
+			arguments->stereo = 1;
+			break;
 		case 'i':
 			arguments->input_file = arg;
 			break;
 		case 'p':
 			arguments->port = arg;
-			break;
-		case 's':
-			arguments->stereo = 1;
 			break;
 		case 'd':
 			arguments->div = 1;
@@ -49,29 +49,22 @@ static struct argp argp = { options, parse_opt, 0, 0 };
 
 int main(int argc, char **argv) {
 	struct arguments arguments;
+	arguments.stereo = 0;
 	arguments.input_file = 0;
 	arguments.port = 0;
-	arguments.stereo = 0;
 	arguments.div = 0;
 	argp_parse(&argp, argc, argv, 0, 0, &arguments);
-	if(arguments.input_file == 0 || arguments.port == 0) {
+	if( arguments.input_file == 0 || arguments.port == 0) {
 		printf("Missing required arguments\n");
-		return 1;
-	}
-	FILE *infile = fopen(arguments.input_file, "rb");
-	if(!infile) {
-		printf("Error opening file\n");
 		return 1;
 	}
 	int fd = open(arguments.port, O_RDWR | O_NOCTTY | O_SYNC);
 	if(fd < 0) {
-		fclose(infile);
 		printf("Error opening serial port: %s\r\n", strerror(errno));
 		return 1;
 	}
 	struct termios tty;
 	if(tcgetattr(fd, &tty) != 0) {
-		fclose(infile);
 		printf("Error from tcgetattr: %s\n", strerror(errno));
 		return 1;
 	}
@@ -89,7 +82,6 @@ int main(int argc, char **argv) {
 	cfsetospeed(&tty, B230400);
 	cfsetispeed(&tty, B230400);
 	if(tcsetattr(fd, TCSANOW, &tty) != 0) {
-		fclose(infile);
 		printf("Error from tcsetattr: %s\r\n", strerror(errno));
 		close(fd);
 		return 1;
@@ -100,19 +92,29 @@ int main(int argc, char **argv) {
 	write(fd, buffer, 1);
 	nanosleep((const struct timespec[]){{3, 0}}, NULL);
 	
-	buffer[0] = arguments.stereo ? 51 : 50;
-	write(fd, buffer, 1);
-	nanosleep((const struct timespec[]){{1, 0}}, NULL);
-	
+	/*
+	 * Prepare data file
+	 */
+	FILE *infile = fopen(arguments.input_file, "rb");
+	FILE *outfile = fopen("temp.bin", "wb");
+
+	if(!infile || !outfile) {
+		printf("Error opening file\n");
+		if(infile) fclose(infile);
+		if(outfile) fclose(outfile);
+		return 1;
+	}
+
 	long lastTime = -1;
+	long accumDiff = 0;
 	char lineBuffer[128];
 	char end = 0;
 	long fpos = 0;
 	long currTime;
 	int addr;
 	int val;
-	long error = 0;
-	while(!end) {
+	unsigned char dbuff[256];
+	while(1) {
 		for(int i = 0; i < 128; i++) lineBuffer[i] = 0;
 		fread(lineBuffer, 1, 128, infile);
 		int lineEnd = 0;
@@ -140,7 +142,7 @@ int main(int argc, char **argv) {
 				}else parts[1] = lineBuffer + i + 1;
 			}else if(lineBuffer[i] == 0) {
 				printf("Invalid formating on line \"%s\"\n", lineBuffer);
-				close(fd);
+				fclose(outfile);
 				fclose(infile);
 				return 1;
 			}
@@ -149,25 +151,75 @@ int main(int argc, char **argv) {
 		addr = atoi(parts[1]);
 		val = atoi(parts[2]);
 		if(lastTime < 0) lastTime = currTime;
-		
+
 		long diff = currTime - lastTime;
+		diff *= 20;
+		diff /= 8;
 		if(arguments.div) diff >>= 1;
-		if(diff >= error) {
-			diff -= error;
-			error = 0;
+		while(diff > 65535) {
+			dbuff[0] = 254;
+			dbuff[1] = 0;
+			dbuff[2] = dbuff[3] = 255;
+			fwrite(dbuff, 1, 4, outfile);
+			diff -= 65535;
 		}
-		if(diff >= 87) nanosleep((const struct timespec[]){{0, diff * 1000 - 86806}}, NULL);
-		else error += diff;
 		lastTime = currTime;
-		buffer[0] = addr;
-		buffer[1] = val;
-		write(fd, buffer, 2);
+		dbuff[0] = addr;
+		dbuff[1] = val;
+		fwrite(dbuff, 1, 2, outfile);
+		if(diff < 16 && accumDiff < 300) accumDiff += diff;
+		else {
+			diff += accumDiff;
+			dbuff[0] = 254;
+			dbuff[1] = 0;
+			dbuff[2] = diff >> 8;
+			dbuff[3] = diff;
+			accumDiff = 0;
+			fwrite(dbuff, 1, 4, outfile);
+		}
+
+		if(end) break;
 	}
-	buffer[0] = 255;
-	buffer[1] = 0;
-	write(fd, buffer, 2);
-	close(fd);
+	dbuff[0] = 254;
+	dbuff[1] = 0;
+	dbuff[2] = dbuff[3] = dbuff[4] = 255;
+	dbuff[5] = 0;
+	fwrite(dbuff, 1, 6, outfile);
+
 	fclose(infile);
-	
+	fclose(outfile);
+	printf("File prepared. Playing...\n");
+
+	buffer[0] = arguments.stereo ? 51 : 50;
+	write(fd, buffer, 1);
+	nanosleep((const struct timespec[]){{1, 0}}, NULL);
+
+	infile = fopen("temp.bin", "rb");
+	while(1) {
+		int n = read(fd, dbuff, 1);
+		if(n == 0) continue;
+		//putchar(dbuff[0]);
+		//fflush(stdout);
+		if(dbuff[0] != 'a') continue;
+		memset(dbuff, 255, 256);
+		int r = fread(dbuff, 1, 256, infile);
+		if(r == 0) break;
+		for(int i = 0; i < 256; i++) {
+			n = write(fd, dbuff + i, 1);
+			if(n == 0) {
+				printf("\r\nFailed to send data.\r\n");
+				close(fd);
+				fclose(infile);
+				return 1;
+			}
+			//nanosleep((const struct timespec[]){{0, 1000000}}, NULL);
+		}
+		n = read(fd, dbuff, 1);
+		if(n == 0 || dbuff[0] != 'b') printf("Did not receive acknowledge!\n");
+		if(r < 256) break;
+	}
+	fclose(infile);
+	close(fd);
+	printf("\r\nDone.\r\n");
 	return 0;
 }

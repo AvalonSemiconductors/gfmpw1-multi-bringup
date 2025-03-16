@@ -1,0 +1,6 @@
+<testsuites name="results">
+  <testsuite name="all" package="all">
+    <property name="random_seed" value="1739035854" />
+    <testcase name="test_qcpu" classname="test" file="/run/media/tholin/8a6b8802-051e-45a8-8492-771202e4c08a/gfmpw1-multi-bringup/QCPU/Emu/test.py" lineno="6" time="3.0095880031585693" sim_time_ns="2001000.001" ratio_time="664875.0589449273" />
+  </testsuite>
+</testsuites>

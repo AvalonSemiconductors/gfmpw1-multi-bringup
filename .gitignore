@@ -16,3 +16,4 @@ MC14500/Software/bin/
 MC14500/Software/obj/
 *.hexe
 AS-11/asl/
+QCPU/Emu/__pycache__/

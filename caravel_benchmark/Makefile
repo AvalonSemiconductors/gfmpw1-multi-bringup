@@ -33,7 +33,7 @@ isr.o: ../caravel_board/firmware/gf180/isr.c
 
 %.bin: %.elf
 	$(TOOLCHAIN_PATH)$(TOOLCHAIN_PREFIX)-objcopy -O binary $< $@
-	java ../Utils/ExpandROM.java $@ 65536
+	java ../Utils/ExpandROM.java $@ 8388608
 
 flash: blink.hex
 	python3 ../caravel_board/firmware/gf180/util/caravel_hkflash.py blink.hex

@@ -40,12 +40,12 @@ static int uart_putchar(char c, FILE *stream){
 	//if(c == '\n') writechar('\r');
 	writechar(c);
 	
-	return 0;
+	return c;
 }
 
 static int uart_getchar(FILE *stream){
 	
-	return _FDEV_EOF;
+	return readchar();
 }
 
 void set_stereo() {
@@ -82,6 +82,8 @@ const char t6[] PROGMEM = "Selected: SN76489\r\n";
 const char t7[] PROGMEM = "Selected: AY8913\r\n";
 const char t8[] PROGMEM = "Selected: TBB1143\r\n";
 PGM_P const chip_names[] PROGMEM = {t5, t6, t7, t8};
+volatile uint8_t serial_operation = 0;
+volatile uint8_t buffer_check_req = 0;
 
 inline void snd_set_data(uint8_t data) {
 	if(sel == SEL_TBB) {
@@ -200,14 +202,28 @@ void snd_silence() {
 	_delay_us(2.2);
 }
 
-void check_buffer(uint16_t br) {
+uint8_t fill_buffer(uint8_t* where) {
+	if(!serial_operation) {
+		UINT br;
+		return f_read(&sndFile, where, 256, &br);
+	}
+	writechar('a');
+	for(int i = 0; i < 256; i++) {
+		while(!(UCSRA & (1<<RXC)));
+		where[i] = UDR;
+	}
+	writechar('b');
+	return FR_OK;
+}
+
+void check_buffer() {
 	uint8_t ferr = FR_OK;
-	if((bmask == 0 && ((buffer_pos >= 256 && br > 500) || (buffer_pos >= 375))) || bmask == 2) {
+	if((bmask == 0 && buffer_pos >= 256) || bmask == 2) {
 		bmask = 1;
-		ferr = f_read(&sndFile, disk_buff, 256, &br);
-	}else if(bmask == 1 && ((buffer_pos < 256 && br > 500) || (buffer_pos < 256 && buffer_pos > 375))) {
+		ferr = fill_buffer(disk_buff);
+	}else if(bmask == 1 && buffer_pos < 256) {
 		bmask = 0;
-		ferr = f_read(&sndFile, disk_buff + 256, 256, &br);
+		ferr = fill_buffer(disk_buff + 256);
 	}
 	if(ferr != FR_OK) {
 		cli();
@@ -222,49 +238,75 @@ ISR(TIMER1_COMPA_vect, ISR_BLOCK) {
 	OCR1A = 0xFFFF;
 	if(!playing) return;
 	uint16_t br = 0;
-	uint8_t ferr = FR_OK;
+	uint8_t reg = FR_OK;
 	uint8_t dat;
-	if(bmask == 2) check_buffer(br);
+	if(bmask == 2) {
+		buffer_check_req = 1;
+		return;
+	}
 	while(1) {
-		ferr = disk_buff[buffer_pos++];
+		reg = disk_buff[buffer_pos++];
 		dat = disk_buff[buffer_pos++];
 		//Advancing through the buffer by an even stride means
 		//the index will never surpass 511 in-between the two reads above
 		buffer_pos &= 511;
-		if(ferr == 255) {
+		if(reg == 255) {
 			//Track over
 			playing = 0;
 			snd_silence();
 			return;
 		}
-		if(ferr == 254) {
+		if(reg == 254) {
 			//End of frame
 			br = disk_buff[buffer_pos++];
 			br <<= 8;
 			br |= disk_buff[buffer_pos++];
 			buffer_pos &= 511;
-			check_buffer(br);
+			buffer_check_req = 1;
 			if(TCNT1 > br) {
 				OCR1A = TCNT1 + 8;
 			}else OCR1A = br;
 			return;
 		}
-		snd_write(ferr, dat);
+		snd_write(reg, dat);
 	}
 }
 
 void stream_main() {
+	printf("Strem mode\r\n");
 	while(1) {
 		stereo = readchar() - 50;
 		if(stereo) set_stereo();
 		else set_mono();
 		snd_silence();
-		uint8_t reg, dat;
-		while(1) {
-			reg = readchar();
-			dat = readchar();
-			if(reg == 255) break;
-			snd_write(reg, dat);
+		//uint8_t reg, dat;
+		serial_operation = 1;
+		fill_buffer(disk_buff);
+		fill_buffer(disk_buff + 256);
+		/*while(1) {
+			for(int i = 0; i < 512; i++) {
+				if((i & 15) == 0) {
+					writechar('\r');
+					writechar('\n');
+				}
+				printf("%02x ", disk_buff[i]);
+			}
+			writechar('\r');
+			writechar('\n');
+		}*/
+		bmask = 0;
+		buffer_check_req = 0;
+		buffer_pos = 0;
+		playing = 1;
+		while(playing) {
+			//if(buffer_check_req) {
+				check_buffer();
+				buffer_check_req = 0;
+			//}
+			//reg = readchar();
+			//dat = readchar();
+			//if(reg == 255) break;
+			//snd_write(reg, dat);
 		}
 		snd_silence();
 		while(readchar() != 'a');
@@ -325,10 +367,18 @@ int main(void) {
 			break;
 	}
 	
+	snd_silence();
 	strcpy_P((char*)disk_buff, (PGM_P)pgm_read_word(&(chip_names[sel])));
 	puts((char*)disk_buff);
-	snd_silence();
 	
+	playing = 0;
+	cli();
+	TCCR1A = 0;
+	TCCR1B = (1 << WGM12) | (1 << CS11);
+	OCR1A = 0xFFFF;
+	TIMSK = (1 << OCIE1A);
+	sei();
+
 	if(readchar() == 'a') {
 		stream_main();
 		while(1);
@@ -352,14 +402,6 @@ int main(void) {
 		printf((char*)disk_buff, err_ret);
 		goto end;
 	}
-	
-	playing = 0;
-	cli();
-	TCCR1A = 0;
-	TCCR1B = (1 << WGM12) | (1 << CS11);
-	OCR1A = 0xFFFF;
-	TIMSK = (1 << OCIE1A);
-	sei();
 	
 	strcpy_P((char*)disk_buff, (PGM_P)pgm_read_word(&(tune_folders[sel])));
 	err_ret = strlen((char*)disk_buff);
@@ -391,6 +433,10 @@ int main(void) {
 	while(playing) {
 		asm volatile("nop");
 		asm volatile("nop");
+		if(buffer_check_req) {
+			check_buffer();
+			buffer_check_req = 0;
+		}
 	}
 	
 	err_ret = f_close(&sndFile);
