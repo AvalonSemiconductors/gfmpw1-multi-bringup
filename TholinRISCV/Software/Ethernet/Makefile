@@ -1,5 +1,5 @@
 PROJECT:=baremetal
-OBJECTS:=start.o tholinstd.o i2c.o eeprom.o rtc.o sdcard.o baremetal.o
+OBJECTS:=start.o tholinstd.o i2c.o eeprom.o rtc.o sdcard.o baremetal.o arp.o ethernet.o phy.o xorshift.o ip.o
 TARGETS:=$(OBJECTS) $(PROJECT).elf $(PROJECT).bin $(PROJECT).debug.txt
 
 all : $(TARGETS)

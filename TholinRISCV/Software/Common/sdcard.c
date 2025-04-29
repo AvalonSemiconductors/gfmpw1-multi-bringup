@@ -9,7 +9,7 @@ uint32_t sd_num_blocks = 0;
 void sd_crc7(uint8_t in, uint8_t* crc) {
 	for(uint8_t i = 0; i < 8; i++) {
 		*crc <<= 1;
-		if((in & 0x80) ^ (*crc & 0x80)) *crc ^= 0x09;
+		if((in & 0x80) != (*crc & 0x80)) *crc ^= 0x09;
 		in <<= 1;
 	}
 	*crc &= 0x7F;
@@ -119,13 +119,15 @@ uint8_t sd_read_buffer(uint8_t* buff, uint16_t len) {
 
 uint8_t sd_init() {
 	uint8_t res1;
+	uint16_t tries;
 	reg_sdiv = 255;
 	sd_desel();
 	for(uint8_t i = 0; i < 10; i++) {
 		reg_sdr = 255;
 		while((reg_stat & 1) != 0) {}
 	}
-	printf("SD: CMD0\r\n");
+	puts("SD: CMD0\r\n");
+	tries = 500;
 	while(1) {
 		sd_sel();
 		sd_cmd(SD_CMD0, SD_CMD0_ARG);
@@ -137,9 +139,13 @@ uint8_t sd_init() {
 			printf("SD CMD0 FAIL %x\r\n", res1);
 			goto sd_init_err;
 		}
+		if(tries-- == 0) {
+			printf("SD CMD0 TIMEOUT %x\r\n", res1);
+			goto sd_init_err;
+		}
 	}
-	printf("SD: CMD8\r\n");
 	
+	puts("SD: CMD8\r\n");
 	sd_sel();
 	sd_cmd(SD_CMD8, SD_CMD8_ARG);
 	res1 = sd_res1();
@@ -162,7 +168,8 @@ uint8_t sd_init() {
 	sd_desel();
 	if(((res7 >> 15) & 0b001100000) == 0) goto bad_58_res;
 	
-	printf("SD: ACMD41\r\n");
+	puts("SD: ACMD41\r\n");
+	tries = 600;
 	while(1) {
 		sd_sel();
 		sd_cmd(SD_CMD55, SD_CMD55_ARG);
@@ -177,6 +184,10 @@ uint8_t sd_init() {
 			goto sd_init_err;
 		}
 		if(res1 == 0) break;
+		if(tries-- == 0) {
+			puts("SD ACMD41 TIMEOUT\r\n");
+			goto sd_init_err;
+		}
 	}
 	
 	sd_sel();
@@ -204,7 +215,7 @@ uint8_t sd_init() {
 	}
 	reg_sdiv = 3;
 	
-	printf("SD: CMD9\r\n");
+	puts("SD: CMD9\r\n");
 	sd_sel();
 	sd_cmd(SD_CMD9, SD_CMD9_ARG);
 	res1 = sd_res1();

@@ -17,3 +17,4 @@ MC14500/Software/obj/
 *.hexe
 AS-11/asl/
 QCPU/Emu/__pycache__/
+AS-11/Emu/obj_dir/

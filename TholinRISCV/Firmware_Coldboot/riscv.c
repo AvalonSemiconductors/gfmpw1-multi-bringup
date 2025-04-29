@@ -203,6 +203,20 @@ void main()
 	configure_io_coldboot(1);
 	uint32_t curr_addr = 0;
 	uint32_t temp = 0;
+
+	curr_addr = 0xAAAAAAAA;
+	temp = ((curr_addr & 0xFFFF) << 5) | WEBLO | WEBHI | OEB | (1 << 4);
+	reg_mprj_datal = temp | LE_LO;
+	asm volatile("nop");
+	reg_mprj_datal = temp;
+	temp = ((curr_addr >> 16) << 5) | WEBLO | WEBHI | OEB | (1 << 4);
+	reg_mprj_datal = temp | LE_HI;
+	reg_mprj_datal = temp;
+	configure_io_coldboot(0);
+	reg_mprj_datal = temp & ~OEB;
+
+	while(1);
+
 	for(uint32_t i = 0; i < pgm_len; i++) {
 		temp = ((curr_addr & 0xFFFF) << 5) | WEBLO | WEBHI | OEB | (1 << 4);
 		reg_mprj_datal = temp | LE_LO;

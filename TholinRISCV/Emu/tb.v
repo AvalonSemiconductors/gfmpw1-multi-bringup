@@ -19,6 +19,8 @@ wire WEb_hi;
 reg [15:0] RAM [262143:0];
 reg [15:0] ROM [262143:0];
 
+wire RAM_read = full_addr[30] && !OEb;
+
 initial begin
 	for(integer i = 0; i < 262144; i++) begin
 		RAM[i] = $random;

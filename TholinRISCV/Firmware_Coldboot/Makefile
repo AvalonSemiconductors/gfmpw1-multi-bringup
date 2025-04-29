@@ -30,10 +30,10 @@ bin:  ${PATTERN:=.bin}
 
 %.bin: %.elf
 	$(TOOLCHAIN_PATH)$(TOOLCHAIN_PREFIX)-objcopy -O binary $< $@
-	java ../../Utils/ExpandROM.java $@ 4194304
+	java ../../Utils/ExpandROM.java $@ 65536
 
 flash: riscv.bin
-	sudo flashrom -c "W25Q32BV/W25Q32CV/W25Q32DV" --programmer ch341a_spi --write expanded.bin
+	sudo flashrom --programmer ch341a_spi --write expanded.bin
 
 # ---- Clean ----
 

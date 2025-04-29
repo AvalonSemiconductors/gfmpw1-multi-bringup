@@ -71,7 +71,7 @@ uint8_t wait_for_char(uint8_t echo) {
 #define F_CLK 15000000
 
 void main(void) {
-	reg_udiv  = F_CLK / 38400 - 1;
+	reg_udiv  = F_CLK / 38400 + 1;
 	reg_ddra  = 0b110001;
 	reg_porta = 0b010001;
 	i2c_setup();
@@ -105,10 +105,10 @@ void main(void) {
 		for(int i = 0; i < 256; i++) test_arr[i] = 0;
 		eeprom_read(test_arr, 0, 256);
 		for(int i = 0; i < 256; i+=4) {
-			uint32_t x = test_arr[i];
-			x |= (uint32_t)test_arr[i+1] << 8;
-			x |= (uint32_t)test_arr[i+2] << 16;
-			x |= (uint32_t)test_arr[i+3] << 24;
+			uint32_t x = test_arr[i+3];
+			x |= (uint32_t)test_arr[i+2] << 8;
+			x |= (uint32_t)test_arr[i+1] << 16;
+			x |= (uint32_t)test_arr[i] << 24;
 			printf("%x ", x);
 			if(((i+4) & 31) == 0) puts("\r\n");
 		}
@@ -173,12 +173,12 @@ void main(void) {
 		if(sd_ret) while(1);
 		if(test_arr[510] != 0x55 || test_arr[511] != 0xAA) puts("Invalid MBR\r\n");
 		for(int i = 0; i < 512; i+=4) {
-			uint32_t x = test_arr[i];
-			x |= (uint32_t)test_arr[i+1] << 8;
-			x |= (uint32_t)test_arr[i+2] << 16;
-			x |= (uint32_t)test_arr[i+3] << 24;
+			uint32_t x = test_arr[i+3];
+			x |= (uint32_t)test_arr[i+2] << 8;
+			x |= (uint32_t)test_arr[i+1] << 16;
+			x |= (uint32_t)test_arr[i] << 24;
 			printf("%x ", x);
-			if(((i+1) & 31) == 0) puts("\r\n");
+			if(((i+4) & 31) == 0) puts("\r\n");
 		}
 		puts("\r\n");
 	}

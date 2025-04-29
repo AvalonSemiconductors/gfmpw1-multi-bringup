@@ -108,6 +108,8 @@ void snd_delay() {
 	asm volatile("nop");
 	asm volatile("nop");
 	asm volatile("nop");
+	asm volatile("nop");
+	asm volatile("nop");
 }
 
 void snd_write(uint8_t addr, uint8_t data) {
