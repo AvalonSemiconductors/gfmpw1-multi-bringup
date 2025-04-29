@@ -10,7 +10,7 @@ ARCH = AS-11
 
 boot: boot.bin
 	java ../../../Utils/ToVerilogHex.java boot.bin BOOT.txt 16384
-	java ../../../Utils/ToConstArray.java boot.bin
+	java ../../../Utils/ToConstArray.java boot.bin > boot_data.h
 
 clean:
 	rm -rf *.bin *.p *.lst
