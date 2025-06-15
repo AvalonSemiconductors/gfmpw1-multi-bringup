@@ -248,7 +248,7 @@ b_set_addr:
 	mov #0,last_act
 	mov input_switches,address_val
 	bic #1,address_val
-	jmp no_write
+	br no_write
 no_set_addr:
 	bit #16384,button_states
 	beq no_inspect
@@ -263,7 +263,7 @@ b_no_inc_address:
 b_just_inspect:
 	mov address_val,r3
 	mov (r3),data_val
-	jmp no_write
+	br no_write
 no_inspect:
 	bit #8192,button_states
 	beq no_write
@@ -277,7 +277,7 @@ b_w_no_inc_address:
 	mov #2,last_act
 	mov address_val,r3
 	mov input_switches,(r3)
-	jmp b_just_inspect
+	br b_just_inspect
 no_write:
 	mov button_states,button_edges
 	
@@ -286,7 +286,7 @@ short_del:
 	nop
 	nop
 	sob r2,short_del
-	jmp memory_mon_loop
+	br memory_mon_loop
 resume:
 	; Halt/Run pushed again, so resume execution
 	mov #0,data_val
@@ -370,17 +370,144 @@ error_del_2:
 	sob r2,error_del_2
 	jmp error_out_r5
 
-temp0: dw 0
+flash_cs equ $0004
+boot_targ equ 2048
+
 serial_bootloader:
 	mov #PORTA,r1
 	ior r2,r1
 	bic #$000C,r2
-	mov r2,temp0
 	iow r2,r1
+	
+	;FF
+	jsr spi_short_del
+	jsr flash_sel
+	mov #$FF,r3
+	jsr spi_exchange_r3
+	jsr flash_desel
+	jsr spi_short_del
+	
+	;AB
+	jsr flash_sel
+	mov #$AB,r3
+	jsr spi_exchange_r3
+	clr r3
+	jsr spi_exchange_r3
+	clr r3
+	jsr spi_exchange_r3
+	clr r3
+	jsr spi_exchange_r3
+	clr r3
+	jsr spi_exchange_r3
+	jsr flash_desel
+	jsr spi_short_del
+	
+	;90
+	jsr flash_sel
+	mov #$90,r3
+	jsr spi_exchange_r3
+	clr r3
+	jsr spi_exchange_r3
+	clr r3
+	jsr spi_exchange_r3
+	clr r3
+	jsr spi_exchange_r3
+	clr r3
+	jsr spi_exchange_r3
+	cmp r3,#$C2
+	beq mfr_id_good
+	cmp r3,#$EF
+	beq mfr_id_good
+	jmp boot_id_error
+mfr_id_good:
+	clr r3
+	jsr spi_exchange_r3
+	jsr flash_desel
+	jsr spi_short_del
+	
+	;Begin read
+	jsr flash_sel
+	mov #$03,r3
+	jsr spi_exchange_r3
+	clr r3
+	jsr spi_exchange_r3
+	clr r3
+	jsr spi_exchange_r3
+	clr r3
+	jsr spi_exchange_r3
+	
+	clr r4
+check_loop:
+	clr r3
+	jsr spi_exchange_r3
+	cmpb r3,check_string(r4)
+	inc r4
+	bne boot_check_error
+	cmp r4,#6
+	bne check_loop
+	
+	clr r3
+	jsr spi_exchange_r3
+	mov r3,r5
+	ash r5,#8
+	clr r3
+	jsr spi_exchange_r3
+	bis r3,r5
+	cmp r5,#$CFFF
+	bgt boot_len_error
+	bit r5,#1
+	bne boot_len_error
+	mov #boot_targ,r4
+boot_loop:
+	clr r3
+	jsr spi_exchange_r3
+	mov r3,r2
+	clr r3
+	jsr spi_exchange_r3
+	ash r3,#8
+	bis r3,r2
+	mov r2,(r4)+
+	dec r5
+	dec r5
+	bne boot_loop
+	jsr flash_desel
 	
 	mov #$AAAA,r5
 	jmp error_out_r5
 
+flash_sel:
+	mov #PORTA,r1
+	ior r2,r1
+	bis #flash_cs,r2
+	iow r2,r1
+	rts r7
+flash_desel:
+	mov #PORTA,r1
+	ior r2,r1
+	bic #$000C,r2
+	iow r2,r1
+	rts r7
+boot_id_error:
+	jsr flash_desel
+	mov #$0001,r5
+	ash r3,#8
+	add r3,r5
+	jmp error_out_r5
+boot_check_error:
+	jsr flash_desel
+	ash r3,#8
+	mov r3,r5
+	bis #$0003,r5
+	jmp error_out_r5
+boot_len_error:
+	jsr flash_desel
+	mov #$000B,r5
+	jmp error_out_r5
+
+check_string:
+	db "CHIRP",0
+
 	; First free memory word
 end_of_programm:
+	align 2
 	dw 0

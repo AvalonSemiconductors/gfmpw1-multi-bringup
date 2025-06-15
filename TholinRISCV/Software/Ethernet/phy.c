@@ -1,6 +1,7 @@
 #include <stdint.h>
 
 #include "tholinstd.h"
+#include "iputils.h"
 #include "ethernet.h"
 #include "phy.h"
 #include "io.h"
@@ -30,8 +31,18 @@
 #define ENC_ERXFCON_UCEN 0x80
 #define ENC_ERXFCON_CRCEN 0x20
 #define ENC_ERXFCON_PMEN 0x10
+#define ENC_ERXFCON_MCEN 0x02
+#define ENC_ERXFCON_BCEN 0x01
 #define ENC_EPMM0 0x28
+#define ENC_EPMM1 0x29
+#define ENC_EPMM2 0x2A
+#define ENC_EPMM3 0x2B
+#define ENC_EPMM4 0x2C
+#define ENC_EPMM5 0x2D
+#define ENC_EPMM6 0x2E
+#define ENC_EPMM7 0x2F
 #define ENC_EPMCS 0x30
+#define ENC_EPMO 0x34
 #define ENC_MACON1 0xC0
 #define ENC_MACON1_MARXEN 0x01
 #define ENC_MACON1_TXPAUS 0x08
@@ -96,7 +107,7 @@ uint8_t enc_read_op(uint8_t op, uint8_t address) {
 	return reg_sdr;
 }
 
-void enc_set_bank(uint8_t address) {
+inline void enc_set_bank(uint8_t address) {
 	if((address & ENC_BANK_MASK) != current_bank) {
 		enc_write_op(ENC_BIT_FIELD_CLR, ENC_ECON1, ENC_ECON1_BSEL1 | ENC_ECON1_BSEL0);
 		current_bank = address & ENC_BANK_MASK;
@@ -114,7 +125,7 @@ void enc_write_reg(uint8_t address, uint16_t data) {
 	enc_write_reg_byte(address + 1, data >> 8);
 }
 
-uint8_t enc_read_reg_byte(uint8_t address) {
+inline uint8_t enc_read_reg_byte(uint8_t address) {
 	enc_set_bank(address);
 	return enc_read_op(ENC_READ_CTRL_REG, address);
 }
@@ -132,8 +143,8 @@ void enc_write_phy(uint8_t address, uint16_t data) {
 }
 
 #define RXBUFF_START 0x0000
-#define RXBUFF_END 0x0BFF
-#define TXBUFF_START 0x0C00
+#define RXBUFF_END 0x05FF
+#define TXBUFF_START 0x0600
 #define TXBUFF_END 0x11FF
 
 uint8_t phy_init(void) {
@@ -150,10 +161,8 @@ uint8_t phy_init(void) {
 	enc_write_reg(ENC_ERXND, RXBUFF_END);
 	enc_write_reg(ENC_ETXST, TXBUFF_START);
 	enc_write_reg(ENC_ETXND, TXBUFF_END);
-	enc_write_reg_byte(ENC_ERXFCON, ENC_ERXFCON_UCEN|ENC_ERXFCON_CRCEN);
+	enc_write_reg_byte(ENC_ERXFCON, ENC_ERXFCON_UCEN|ENC_ERXFCON_CRCEN|ENC_ERXFCON_BCEN|ENC_ERXFCON_MCEN);
 	//Or disable filters: enc_write_reg(ENC_ERXFCON, 0x00);
-	enc_write_reg(ENC_EPMM0, 0x303F);
-	enc_write_reg(ENC_EPMCS, 0xF7F9);
 	enc_write_reg_byte(ENC_MACON2, 0x00);
 	enc_write_reg_byte(ENC_MACON1, ENC_MACON1_MARXEN|ENC_MACON1_TXPAUS|ENC_MACON1_RXPAUS);
 	//enc_write_op(ENC_BIT_FIELD_SET, ENC_MACON3, ENC_MACON3_PADCFG0|ENC_MACON3_TXCRCEN|ENC_MACON3_FRMLNEN);
@@ -162,12 +171,24 @@ uint8_t phy_init(void) {
 	//enc_write_reg_byte(ENC_MABBIPG, 0x12);
 	enc_write_reg_byte(ENC_MABBIPG, 0x15);
 	enc_write_reg(ENC_MAMXFL, MAX_PAYLOAD_LENGTH);
-	enc_write_reg(ENC_MAADR5, our_mac[0]);
-	enc_write_reg(ENC_MAADR4, our_mac[1]);
-	enc_write_reg(ENC_MAADR3, our_mac[2]);
-	enc_write_reg(ENC_MAADR2, our_mac[3]);
-	enc_write_reg(ENC_MAADR1, our_mac[4]);
-	enc_write_reg(ENC_MAADR0, our_mac[5]);
+	enc_write_reg_byte(ENC_MAADR5, our_mac[5]);
+	enc_write_reg_byte(ENC_MAADR4, our_mac[4]);
+	enc_write_reg_byte(ENC_MAADR3, our_mac[3]);
+	enc_write_reg_byte(ENC_MAADR2, our_mac[2]);
+	enc_write_reg_byte(ENC_MAADR1, our_mac[1]);
+	enc_write_reg_byte(ENC_MAADR0, our_mac[0]);
+	
+	/*enc_write_reg(ENC_EPMO, 0);
+	enc_write_reg_byte(ENC_EPMM0, 0b00110000);
+	enc_write_reg_byte(ENC_EPMM1, 0);
+	enc_write_reg_byte(ENC_EPMM2, 0);
+	enc_write_reg_byte(ENC_EPMM3, 0);
+	enc_write_reg_byte(ENC_EPMM4, 0);
+	enc_write_reg_byte(ENC_EPMM5, 0);
+	enc_write_reg_byte(ENC_EPMM6, 0);
+	enc_write_reg_byte(ENC_EPMM7, 0);
+	enc_write_reg(ENC_EPMCS, 0xCCCC);*/
+	
 	//enc_write_phy(ENC_PHCON2, ENC_PHCON2_HDLDIS);
 	enc_write_phy(ENC_PHCON1, ENC_PHCON1_PDPXMD);
 	enc_set_bank(ENC_ECON1);

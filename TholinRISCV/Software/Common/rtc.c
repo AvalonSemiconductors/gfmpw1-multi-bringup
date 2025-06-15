@@ -4,6 +4,11 @@
 #include "i2c.h"
 #include "rtc.h"
 
+//1st January 2000, 00:00
+#define RTC_EPOCH 946681200
+#define YEAR_SECONDS (365 * 24 * 60 * 60)
+#define SECONDS_PER_DAY (24 * 60 * 60)
+
 uint8_t rtc_raw_buff[19];
 
 uint8_t rtc_write_regs(uint8_t *buff, uint8_t reg, uint8_t len) {
@@ -59,24 +64,50 @@ uint8_t rtc_get_time(struct Datetime *time) {
 	}else time->hour = ((rtc_raw_buff[2] >> 4) & 0x03) * 10 + (rtc_raw_buff[2] & 0x0F);
 	time->day = rtc_raw_buff[3] & 0x07;
 	
-	time->unix_time = 946681200; //1st January 2000, 00:00
+	time->unix_time = RTC_EPOCH;
 	time->unix_time += time->second;
 	time->unix_time += time->minute * 60;
 	time->unix_time += time->hour * 60 * 60;
-	time->unix_time += (time->date - 1) * 24 * 60 * 60;
+	time->unix_time += (time->date - 1) * SECONDS_PER_DAY;
 	for(int i = 1; i < time->month; i++) {
 		if(i == 2) {
-			time->unix_time += 28 * 24 * 60 * 60;
-			if((time->year & 0x03) == 0) time->unix_time += 24 * 60 * 60;
+			time->unix_time += 28 * SECONDS_PER_DAY;
+			if((time->year & 0x03) == 0) time->unix_time += SECONDS_PER_DAY;
 			continue;
 		}
-		time->unix_time += ((i & 1) == 0 ? 30 : 31) * 24 * 60 * 60;
+		time->unix_time += ((i & 1) == 0 ? 30 : 31) * SECONDS_PER_DAY;
 	}
 	for(int i = 0; i < time->year; i++) {
-		time->unix_time += 365 * 24 * 60 * 60;
-		if((i & 0x03) == 0) time->unix_time += 24 * 60 * 60;
+		time->unix_time += YEAR_SECONDS;
+		if((i & 0x03) == 0) time->unix_time += SECONDS_PER_DAY;
 	}
 	return 0;
+}
+
+void rtc_from_unix(struct Datetime *time) {
+	uint64_t temp = time->unix_time - RTC_EPOCH;
+	uint32_t year = 0;
+	uint32_t days = temp / SECONDS_PER_DAY;
+	for(;;year++) {
+		uint16_t d = (year & 3) == 0 ? 366 : 365;
+		if(days < d) break;
+		days -= d;
+	}
+	time->year = 2000 + year;
+	uint32_t month = 1;
+	for(;;month++) {
+		uint16_t d = month == 2 ? ((year & 3) == 0 ? 29 : 28) : 30 + (month & 1);
+		if(days < d) break;
+		days -= d;
+	}
+	time->month = month;
+	time->date = days + 1;
+	
+	time->second = temp % 60;
+	time->minute = (temp % 3600) / 60;
+	time->hour = (temp % SECONDS_PER_DAY) / 3600;
+	time->day = temp / SECONDS_PER_DAY % 7 + 1 + THURSDAY;
+	if(time->day > SATURDAY) time->day -= SATURDAY;
 }
 
 uint8_t rtc_set_time(struct Datetime *time) {

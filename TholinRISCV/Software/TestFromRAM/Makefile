@@ -35,7 +35,7 @@ $(PROJECT).bin : $(PROJECT).elf
 	$(PREFIX)objcopy $^ -O binary $@
 
 $(PROJECT)_data.h : $(PROJECT).bin
-	java ../../../Utils/ToConstArray.java $(PROJECT).bin > $(PROJECT)_data.h
+	java ../../../Utils/ToConstArray.java $(PROJECT).bin true > $(PROJECT)_data.h
 
 eprom:
 	brp /dev/ttyUSB0 27C160 $(PROJECT).bin

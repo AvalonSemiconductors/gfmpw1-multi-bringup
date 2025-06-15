@@ -30,5 +30,6 @@ uint8_t rtc_set_time(struct Datetime *time);
 uint8_t rtc_configure();
 uint8_t rtc_get_temperature(float *temp);
 void rtc_time_print(struct Datetime *time);
+void rtc_from_unix(struct Datetime *time);
 
 #endif

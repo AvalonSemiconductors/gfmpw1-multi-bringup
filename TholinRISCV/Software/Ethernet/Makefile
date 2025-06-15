@@ -1,6 +1,9 @@
 PROJECT:=baremetal
-OBJECTS:=start.o tholinstd.o i2c.o eeprom.o rtc.o sdcard.o baremetal.o arp.o ethernet.o phy.o xorshift.o ip.o
+OBJECTS:=start.o tholinstd.o i2c.o eeprom.o rtc.o sdcard.o baremetal.o arp.o ethernet.o phy.o xorshift.o ip.o crc.o ext4.o udp.o dhcp.o iputils.o slaac.o dns.o ntp.o tcp.o
 TARGETS:=$(OBJECTS) $(PROJECT).elf $(PROJECT).bin $(PROJECT).debug.txt
+
+START_SOURCE:=../Common/start_coldboot.S
+LDFILE:=../Common/flatfile_coldboot.lds
 
 all : $(TARGETS)
 
@@ -13,9 +16,9 @@ CFLAGS:=-I. -I../Common/
 CFLAGS+=-fno-stack-protector -fno-pic
 CFLAGS+=-static-libgcc -fdata-sections -ffunction-sections -mstrict-align
 CFLAGS+=-g -O2 $(ARCHFLAGS) -static -ffreestanding
-LDFLAGS:= -T ../Common/flatfile.lds -nostdlib -Wl,--gc-sections -lgcc -mstrict-align
+LDFLAGS:= -T $(LDFILE) -nostdlib -Wl,--gc-sections -lgcc -mstrict-align
 
-start.o: ../Common/start.S
+start.o: $(START_SOURCE)
 	$(PREFIX)as $(ARCHFLAGS) -mno-relax -o $@ $<
 
 tholinstd.o: ../Common/tholinstd.c
@@ -45,6 +48,9 @@ $(PROJECT).debug.txt : $(PROJECT).elf
 
 $(PROJECT).bin : $(PROJECT).elf
 	$(PREFIX)objcopy $^ -O binary $@
+
+$(PROJECT)_data.h : $(PROJECT).bin
+	java ../../../Utils/ToConstArray.java $(PROJECT).bin true > $(PROJECT)_data.h
 
 eprom:
 	brp /dev/ttyUSB0 27C160 $(PROJECT).bin

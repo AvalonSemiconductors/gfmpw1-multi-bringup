@@ -3,14 +3,23 @@
 #include <stdbool.h>
 
 #include "io.h"
+#include "iputils.h"
 #include "ethernet.h"
+#include "ip.h"
 #include "arp.h"
+#include "udp.h"
+#include "dhcp.h"
 #include "tholinstd.h"
 #include "i2c.h"
 #include "eeprom.h"
 #include "rtc.h"
 #include "sdcard.h"
 #include "xorshift.h"
+#include "ext4.h"
+#include "delay.h"
+#include "slaac.h"
+#include "dns.h"
+#include "ntp.h"
 
 int putchar(int c) {
 	while((reg_stat & 2) != 0) {}
@@ -30,8 +39,10 @@ void isr() {
 	if(reg_inum == 2) {
 		reg_tmr1 = 0;
 		reg_intclr = 0;
-		reg_porta = reg_porta ^ 0b100000;
+		if((int_count & 7) == 0) reg_porta = reg_porta ^ 0b100000;
 		int_count++;
+		if((int_count & 31) == 0 && dhcp_lease_time != 0) dhcp_lease_time--;
+		if((int_count & 31) == 0 && slaac_lifetime != 0 && slaac_lifetime != 0xFFFFFFFF) slaac_lifetime--;
 		eth_update();
 		return;
 	}
@@ -45,8 +56,8 @@ void isr() {
 	}
 }
 
-void long_del(uint32_t seconds) {
-	seconds *= 4;
+void delay_s(uint32_t seconds) {
+	seconds *= 32;
 	uint32_t int_count_orig = int_count;
 	while(int_count - int_count_orig < seconds) { asm volatile("nop"); }
 }
@@ -69,6 +80,11 @@ uint8_t wait_for_char(uint8_t echo) {
 	}
 }
 
+void error_out() {
+	reg_porta = reg_porta | 0b100000;
+	while(1);
+}
+
 #define F_CLK 15000000
 
 void main(void) {
@@ -81,8 +97,8 @@ void main(void) {
 	reg_ttop0 = 0xFFFFFFFF;
 	reg_tmr0 = 0;
 	
-	reg_tdiv1 = F_CLK/1000;
-	reg_ttop1 = 250;
+	reg_tdiv1 = F_CLK/4000;
+	reg_ttop1 = 125;
 	reg_tmr1 = 0;
 	reg_ien = 0b110;
 	
@@ -99,19 +115,89 @@ void main(void) {
 	{
 		uint8_t sd_ret = sd_init();
 		if(sd_ret) while(1);
+		
+		uint8_t mbr_buff[512];
+		sd_read_block(0, mbr_buff);
+		if(mbr_buff[510] != 0x55 || mbr_buff[511] != 0xAA) {
+			puts("Invalid MBR!\r\n");
+			error_out();
+		}
+		uint32_t ext4_start = 0xFFFFFFFF;
+		uint8_t* temp;
+		for(uint8_t i = 0; i < 4; i++) {
+			temp = mbr_buff + (446 + i * 16 + 8);
+			uint32_t start = temp[0] + (temp[1] << 8) + (temp[2] << 16) + (temp[3] << 24);
+			temp = mbr_buff + (446 + i * 16 + 12);
+			uint32_t size = temp[0] + (temp[1] << 8) + (temp[2] << 16) + (temp[3] << 24);
+			uint32_t end = start + size;
+			uint8_t type = mbr_buff[446 + i * 16 + 4];
+			if(start > sd_num_blocks || end > sd_num_blocks) {
+				puts("\033[1;31mWARNING:\033[0m Invalid partition found on card, MBR may be bad\r\n");
+				size = start = end = 0;
+				type = 0;
+			}
+			if(size != 0 && type == 0x83) {
+				ext4_start = start;
+				break;
+			}
+		}
+		if(ext4_start == 0xFFFFFFFF) {
+			puts("No partition of type ext4 found on card\r\n");
+			error_out();
+		}
+		
+		int e4ret = ext4_mount(ext4_start);
+		if(e4ret != EXT4_OKAY) {
+			printf("Failed to mount ext4 partition %x\r\n", e4ret);
+			error_out();
+		}
+		
+		puts("eth_reset\r\n");
 		eth_reset();
+		dns_ip.ipv4 = (1 << 24) | (1 << 16) | (1 << 8) | 1;
+		dns_ip.def_ipv4 = 1;
 	}
 	
+	puts("Enabling interrupts now!\r\n");
 	asm volatile(".word 0x00700073"); //sei
-	long_del(3);
 	
-	uint32_t router_ip = (192 << 24) | (168 << 16) | (2 << 8) | 32;
-	arp_request(router_ip);
-
+	const char* hostname = "Tholin RISC-V";
+	dhcp(ipv4_parts(192, 168, 2, 1), hostname);
+	slaac_configure(1, hostname);
+	if(dns_ip.def_ipv6) dns_ip.type = 1; //Prefer IPv6
+	
+	puts("Switching DNS to 'one.one.one.one' => ");
+	IPAddr res;
+	uint8_t retval = dns_query("one.one.one.one", &res, 1);
+	if(retval == 0) {
+		debug_print_IP(res);
+		putchar(13); putchar(10);
+		for(uint8_t i = 0; i < 16; i++) dns_ip.ipv6[i] = res.ipv6[i];
+	}else printf("FAIL %x\r\n", retval);
+	
+	puts("Getting NTP IP from '0.de.pool.ntp.org' => ");
+	retval = dns_query("0.de.pool.ntp.org", &res, 0);
+	if(retval == 0) {
+		debug_print_IP(res);
+		putchar(13); putchar(10);
+	}else {
+		printf("FAIL (fallback used) %x\r\n", retval);
+		res = ipv4_parts(88, 198, 200, 96);
+	}
+	retval = ntp_query(res, 3600);
+	if(retval) {
+		printf("NTP FAIL (%x) using time from RTC which is ", retval);
+		struct Datetime datetime;
+		retval = rtc_get_time(&datetime);
+		if(retval) {
+			puts("UNKNOWN\r\n");
+		}else {
+			rtc_time_print(&datetime);
+			putchar(13); putchar(10);
+		}
+	}
+	
 	while(1) {
-		long_del(5);
-		uint8_t* a = arp_lookup(router_ip);
-		//if(a) debug_print_MAC(a);
-		//else puts("NULL\r\n");
+		delay_s(2);
 	}
 }

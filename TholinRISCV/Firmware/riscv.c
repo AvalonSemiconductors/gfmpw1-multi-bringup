@@ -114,6 +114,7 @@ void main()
     reg_gpio_mode0 = 0;
     reg_gpio_ien = 1;
     reg_gpio_oeb = 0;
+    reg_gpio_out = 0;
 
 	reg_spictrl = (1 << 31) | (2 << 16); //Less wait states
     configure_io();
@@ -136,11 +137,10 @@ void main()
 	
 	reg_gpio_out = 1;
 	while (1) {
-		delay(4500000);
+		delay(7500000);
         reg_mprj_datal = 4;
-		delay(4500000);
+		delay(7500000);
         reg_mprj_datal = 0;
-
     }
 }
 

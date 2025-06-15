@@ -213,7 +213,7 @@ uint8_t sd_init() {
 		puts("SD CMDs 59 / 16 FAIL\r\n");
 		goto sd_init_err;
 	}
-	reg_sdiv = 3;
+	reg_sdiv = 1;
 	
 	puts("SD: CMD9\r\n");
 	sd_sel();

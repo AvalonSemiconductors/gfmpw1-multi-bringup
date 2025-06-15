@@ -204,7 +204,7 @@ void main()
 	uint32_t curr_addr = 0;
 	uint32_t temp = 0;
 
-	curr_addr = 0xAAAAAAAA;
+	/*curr_addr = 0xAAAAAAAA;
 	temp = ((curr_addr & 0xFFFF) << 5) | WEBLO | WEBHI | OEB | (1 << 4);
 	reg_mprj_datal = temp | LE_LO;
 	asm volatile("nop");
@@ -215,9 +215,10 @@ void main()
 	configure_io_coldboot(0);
 	reg_mprj_datal = temp & ~OEB;
 
-	while(1);
+	while(1);*/
 
-	for(uint32_t i = 0; i < pgm_len; i++) {
+    uint32_t pgmval = 0;
+	for(uint32_t i = 0; i < pgm_len * 2; i++) {
 		temp = ((curr_addr & 0xFFFF) << 5) | WEBLO | WEBHI | OEB | (1 << 4);
 		reg_mprj_datal = temp | LE_LO;
 		asm volatile("nop");
@@ -229,7 +230,10 @@ void main()
 		}
 		curr_addr++;
 		
-		temp = (pgm[i] << 5) | OEB | (1 << 4);
+        pgmval = pgm[i >> 1];
+        if((i & 1) != 0) pgmval >>= 16;
+        pgmval &= 0xFFFF;
+		temp = (pgmval << 5) | OEB | (1 << 4);
 		reg_mprj_datal = temp;
 		asm volatile("nop");
 		reg_mprj_datal = temp | WEBLO | WEBHI;

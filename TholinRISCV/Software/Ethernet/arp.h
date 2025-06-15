@@ -14,15 +14,18 @@ typedef struct {
 }ArpHeader;
 
 typedef struct {
-	uint32_t ip;
+	IPAddr ip;
 	uint16_t padding;
 	uint8_t mac[MAC_LENGTH];
 }ArpEntry;
 
 void arp_reset(void);
 void arp_parse_incoming(EthernetFrame* raw);
-uint8_t* arp_lookup(uint32_t ip);
-void arp_request(uint32_t ip);
-void arp_table_add(uint8_t* mac, uint32_t ip);
+void arp_parse_ndp(ICMPHeader ihdr, IPv6Header hdr);
+uint8_t* arp_lookup(IPAddr ip);
+void ndp_solicit(IPAddr ip);
+void arp_request(IPAddr ip);
+void arp_table_add(uint8_t* mac, IPAddr ip);
+void arp_table_remove(IPAddr ip);
 
 #endif

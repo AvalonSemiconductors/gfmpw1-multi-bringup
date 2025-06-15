@@ -13,7 +13,7 @@
 // - Enables additional debugging to make sure all is O.K.
 // - Makes use of custom peripherals on the wishbone bus
 //Undefining this still yields working code, but with some additional limitations
-#define THOLIN_SILICON
+#undef THOLIN_SILICON
 
 #ifdef THOLIN_SILICON
 #define reg_mprj_counter_addr_multi 0x30040000

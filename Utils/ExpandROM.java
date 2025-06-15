@@ -11,6 +11,10 @@ public class ExpandROM {
 				aaa++;
 			}
 			int targSize = Integer.parseInt(args[1]);
+			if(aaa > targSize) {
+				System.err.println("Input already larger than requested size. You probably did not intend for this.");
+				System.exit(1);
+			}
 			for(int i = aaa; i < targSize; i++) fos.write(0xFF);
 			fos.close();
 			fis.close();
