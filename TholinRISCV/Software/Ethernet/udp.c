@@ -63,7 +63,6 @@ void udp_parse_incoming(uint8_t* p) {
 #ifdef DEBUG_UDP
 	print_udp_header(&hdr);
 #endif
-	//printf("UDP %u -> %u l. %u\r\n", hdr.source_port, hdr.dest_port, hdr.length);
 	for(uint16_t i = 0; i < UDP_MAX_SOCKETS; i++) {
 		if(udp_sockets[i].port != 0 && udp_sockets[i].port == hdr.dest_port) {
 			uint16_t to_write = hdr.length - UDP_HEADER_LENGTH;
@@ -74,12 +73,13 @@ void udp_parse_incoming(uint8_t* p) {
 			if(to_write == 0) continue;
 			volatile uint8_t* dest = udp_sockets[i].buffer;
 			uint8_t* src = p;
-			while(to_write) {
+			uint16_t ctr = to_write;
+			while(ctr) {
 				dest[udp_sockets[i].write_ptr++] = *src++;
-				to_write--;
+				ctr--;
 				udp_sockets[i].write_ptr %= UDP_MAX_BUFFER;
-				udp_sockets[i].remaining++;
 			}
+			udp_sockets[i].remaining += to_write;
 		}
 	}
 }
@@ -124,7 +124,7 @@ uint16_t udp_read(uint16_t port, uint8_t* buff, uint16_t len) {
 			uint16_t ctr = to_read;
 			while(ctr) {
 				*buff++ = src[udp_sockets[i].read_ptr++];
-				udp_sockets[i].remaining--;
+				//udp_sockets[i].remaining--;
 				ctr--;
 				udp_sockets[i].read_ptr %= UDP_MAX_BUFFER;
 			}

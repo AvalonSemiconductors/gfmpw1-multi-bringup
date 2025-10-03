@@ -7,6 +7,7 @@
 #include "arp.h"
 #include "phy.h"
 #include "udp.h"
+#include "tcp.h"
 
 volatile IPAddr our_ip;
 volatile IPAddr our_global_ipv6;
@@ -80,6 +81,7 @@ void eth_update(void) {
 	}
 	eth_tx_buff = eth_tx_buff_reg;
 	eth_in_interrupt = 0;
+	tcp_update();
 }
 
 uint8_t is_packet_for_us(EthernetFrame* frame) {

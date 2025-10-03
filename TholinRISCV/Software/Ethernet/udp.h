@@ -27,8 +27,8 @@ typedef struct {
 	uint16_t port;
 	volatile uint16_t remaining;
 	volatile uint32_t flags;
-	uint16_t read_ptr;
-	uint16_t write_ptr;
+	volatile uint16_t read_ptr;
+	volatile uint16_t write_ptr;
 	volatile uint8_t buffer[UDP_MAX_BUFFER];
 } UDPSocket;
 

@@ -19,7 +19,7 @@ uint8_t dhcp_header_correct(uint8_t* buff) {
 	return buff[4] == 0x39 && buff[5] == 0x03 && buff[6] == 0xF3 && buff[7] == 0x26 && buff[236] == 0x63 && buff[237] == 0x82 && buff[238] == 0x53 && buff[239] == 0x63;
 }
 
-uint16_t dhcp_put_header(uint8_t* buff, uint8_t msg_type, uint32_t server_ip, const char* hostname) {
+uint16_t dhcp_put_header(uint8_t* buff, uint8_t msg_type, uint32_t server_ip, const char* hostname, uint32_t requested_ip) {
 	buff[0] = 0x01; //OP
 	buff[1] = 0x01; //HTYPE
 	buff[2] = 0x06; //HLEN
@@ -64,6 +64,14 @@ uint16_t dhcp_put_header(uint8_t* buff, uint8_t msg_type, uint32_t server_ip, co
 		for(uint8_t i = 0; i < len; i++) *options_ptr++ = (uint8_t)(*hostname++);
 	}
 	
+	if(requested_ip) {
+		options_ptr[0] = 50;
+		options_ptr[1] = 4;
+		options_ptr += 2;
+		put_uint32(options_ptr, requested_ip);
+		options_ptr += 4;
+	}
+	
 	*options_ptr++ = 0xFF;
 	
 	return options_ptr - buff;
@@ -80,9 +88,10 @@ uint8_t dhcp(IPAddr s_ip, const char* hostname) {
 	udp_open_port(68);
 	
 	uint8_t dhcp_buff[512];
-	uint16_t hlen = dhcp_put_header(dhcp_buff, DHCP_TYPE_DISCOVER, s_ip.ipv4, hostname);
+	uint16_t hlen = dhcp_put_header(dhcp_buff, DHCP_TYPE_DISCOVER, s_ip.ipv4, hostname, 0);
 	udp_skip(68, 0xFFFF);
 	udp_write(67, s_ip, dhcp_buff, hlen);
+	for(uint16_t i = 0; i < 512; i++) dhcp_buff[i] = 0;
 	putchar('.');
 	
 	uint8_t wait;
@@ -93,22 +102,26 @@ uint8_t dhcp(IPAddr s_ip, const char* hostname) {
 	if(wait == 10) goto dhcp_fail;
 	
 	uint16_t read = udp_read(68, dhcp_buff, 512);
-	if(!dhcp_header_correct(dhcp_buff) || dhcp_buff[0] != 0x02) goto dhcp_fail;
+	if(!dhcp_header_correct(dhcp_buff) || dhcp_buff[0] != 0x02 || read < 240) goto dhcp_fail;
 	if(dhcp_buff[16] == 0 && dhcp_buff[17] == 0 && dhcp_buff[18] == 0 && dhcp_buff[19] == 0) goto dhcp_fail;
 	putchar('.');
+	uint32_t offered_addr = EXTRACT_UINT32(dhcp_buff + 16);
 	uint32_t siaddr = EXTRACT_UINT32(dhcp_buff + 20);
 	
 	//If there is a server IP in the options, use that instead
 	uint16_t opt_pos = 240;
+	uint8_t msg_type = 0xFF;
 	while(opt_pos < read) {
 		uint8_t cmd = dhcp_buff[opt_pos++];
 		uint8_t len = dhcp_buff[opt_pos++];
+		if(cmd == 53 && len == 1) msg_type = dhcp_buff[opt_pos];
 		if(cmd == 54) {
 			//Server IP overriden using option
 			siaddr = EXTRACT_UINT32(dhcp_buff + opt_pos);
 		}
 		opt_pos += len;
 	}
+	if(msg_type != 2) goto dhcp_fail;
 	
 	if(siaddr != s_ip.ipv4) {
 		//debug_print_IPv4(EXTRACT_UINT32(dhcp_buff + 16)); putchar(' ');
@@ -116,10 +129,11 @@ uint8_t dhcp(IPAddr s_ip, const char* hostname) {
 		putchar('C');
 		goto dhcp_fail;
 	}
-	hlen = dhcp_put_header(dhcp_buff, DHCP_TYPE_REQUEST, s_ip.ipv4, hostname);
+	hlen = dhcp_put_header(dhcp_buff, DHCP_TYPE_REQUEST, s_ip.ipv4, hostname, offered_addr);
 	put_uint32(dhcp_buff + 20, siaddr);
 	udp_skip(68, 0xFFFF);
 	udp_write(67, s_ip, dhcp_buff, hlen);
+	for(uint16_t i = 0; i < 512; i++) dhcp_buff[i] = 0;
 	
 	for(wait = 0; wait < 10; wait++) {
 		delay_s(1);
@@ -128,9 +142,18 @@ uint8_t dhcp(IPAddr s_ip, const char* hostname) {
 	if(wait == 10) goto dhcp_fail;
 	
 	read = udp_read(68, dhcp_buff, 512);
-	if(!dhcp_header_correct(dhcp_buff) || dhcp_buff[0] != 0x02) goto dhcp_fail;
-	putchar('.');
+	if(!dhcp_header_correct(dhcp_buff) || dhcp_buff[0] != 0x02 || read < 240) goto dhcp_fail;
 	uint32_t yiaddr = EXTRACT_UINT32(dhcp_buff + 16);
+	if(yiaddr != offered_addr) goto dhcp_fail;
+	/*for(uint16_t i = 0; i < read; i++) {
+		if((i & 15) == 0 && i) {
+			putchar(13); putchar(10);
+		}
+		iputils_puthex8(dhcp_buff[i]);
+		putchar(' ');
+	}
+	putchar(13); putchar(10);*/
+	putchar('.');
 	our_ip.ipv4 = yiaddr;
 	our_ip.def_ipv4 = 1;
 	putchar(' ');
@@ -141,13 +164,16 @@ uint8_t dhcp(IPAddr s_ip, const char* hostname) {
 	router_ip.def_ipv4 = 1;
 	opt_pos = 240;
 	dhcp_lease_time = 0xFFFFFFFF;
+	msg_type = 0xFF;
 	while(opt_pos < read) {
 		uint8_t cmd = dhcp_buff[opt_pos++];
 		uint8_t len = dhcp_buff[opt_pos++];
+		if(cmd == 53 && len == 1) msg_type = dhcp_buff[opt_pos];
 		if(cmd == 51) dhcp_lease_time = EXTRACT_UINT32(dhcp_buff + opt_pos);
 		if(cmd == 3) router_ip.ipv4 = EXTRACT_UINT32(dhcp_buff + opt_pos);
 		opt_pos += len;
 	}
+	if(msg_type != 5) goto dhcp_fail;
 	
 	arp_request(router_ip);
 	

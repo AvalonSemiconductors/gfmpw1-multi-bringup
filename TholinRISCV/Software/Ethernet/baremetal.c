@@ -20,6 +20,7 @@
 #include "slaac.h"
 #include "dns.h"
 #include "ntp.h"
+#include "tcp.h"
 
 int putchar(int c) {
 	while((reg_stat & 2) != 0) {}
@@ -165,6 +166,8 @@ void main(void) {
 	dhcp(ipv4_parts(192, 168, 2, 1), hostname);
 	slaac_configure(1, hostname);
 	if(dns_ip.def_ipv6) dns_ip.type = 1; //Prefer IPv6
+	IPAddr test_ip = ipv4_parts(192, 168, 2, 40);
+	arp_request(test_ip);
 	
 	puts("Switching DNS to 'one.one.one.one' => ");
 	IPAddr res;
@@ -176,7 +179,10 @@ void main(void) {
 	}else printf("FAIL %x\r\n", retval);
 	
 	puts("Getting NTP IP from '0.de.pool.ntp.org' => ");
-	retval = dns_query("0.de.pool.ntp.org", &res, 0);
+	for(uint8_t i = 0; i < 3; i++) {
+		retval = dns_query("0.de.pool.ntp.org", &res, 0);
+		if(retval == 0) break;
+	}
 	if(retval == 0) {
 		debug_print_IP(res);
 		putchar(13); putchar(10);
@@ -197,7 +203,30 @@ void main(void) {
 		}
 	}
 	
+	volatile TCPSocket* socket;
+	tcp_connect(test_ip, 8008, &socket);
+	while(socket->state == 1) {}
+	if(socket->state == 4) {
+		tcp_write(socket, "awawawawa", 10);
+	}
+	
+	uint8_t retbuff[32];
+	uint8_t counter = 0;
+	const char* hexchars_a = "0123456789abcdef";
 	while(1) {
-		delay_s(2);
+		if(socket->remaining > 0) {
+			for(uint8_t i = 0; i < 32; i++) retbuff[i] = 0;
+			tcp_read(socket, retbuff, 32);
+			printf("Received: %s\r\n", retbuff);
+			if(socket->state == 4) {
+				tcp_write(socket, "WEHWEHWEHWEHWEH!", 16);
+				retbuff[0] = hexchars_a[counter >> 4];
+				retbuff[1] = hexchars_a[counter & 15];
+				retbuff[2] = 0;
+				tcp_write(socket, retbuff, 3);
+			}else printf("Connection closed!\r\n");
+			counter++;
+		}
+		delay_s(1);
 	}
 }

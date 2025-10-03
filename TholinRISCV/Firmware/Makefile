@@ -30,7 +30,7 @@ bin:  ${PATTERN:=.bin}
 
 %.bin: %.elf
 	$(TOOLCHAIN_PATH)$(TOOLCHAIN_PREFIX)-objcopy -O binary $< $@
-	java ../../Utils/ExpandROM.java $@ 65536
+	java ../../Utils/ExpandROM.java $@ 131072
 
 flash: riscv.bin
 	sudo flashrom --programmer ch341a_spi --write expanded.bin

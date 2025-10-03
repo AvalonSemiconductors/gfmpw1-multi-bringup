@@ -2,8 +2,8 @@ PROJECT:=baremetal
 OBJECTS:=start.o tholinstd.o i2c.o eeprom.o rtc.o sdcard.o baremetal.o arp.o ethernet.o phy.o xorshift.o ip.o crc.o ext4.o udp.o dhcp.o iputils.o slaac.o dns.o ntp.o tcp.o
 TARGETS:=$(OBJECTS) $(PROJECT).elf $(PROJECT).bin $(PROJECT).debug.txt
 
-START_SOURCE:=../Common/start_coldboot.S
-LDFILE:=../Common/flatfile_coldboot.lds
+START_SOURCE:=../Common/start.S
+LDFILE:=../Common/flatfile.lds
 
 all : $(TARGETS)
 

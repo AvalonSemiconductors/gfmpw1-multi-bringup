@@ -5,6 +5,7 @@
 #include "ip.h"
 #include "arp.h"
 #include "udp.h"
+#include "tcp.h"
 #include "slaac.h"
 #ifdef DEBUG_IP
 #include "tholinstd.h"
@@ -55,6 +56,7 @@ static uint16_t ip_counter = 0;
 void ip_reset(void) {
 	ip_counter = 0;
 	hop_limit = 0xFF;
+	tcp_reset();
 }
 
 uint8_t* ipv4_tx_header(uint16_t payload_len, uint8_t protocol, IPAddr dest) {
@@ -198,7 +200,7 @@ void ipv4_parse_incoming(EthernetFrame* raw) {
 	}else if(hdr.protocol == IP_PROTOCOL_TCP) {
 		//TCP
 		if(!ip_match) return;
-		
+		tcp_parse_incoming(hdr.payload, hdr.len - header_len);
 	}else if(hdr.protocol == IP_PROTOCOL_ICMP) {
 		//ICMP
 		if(ip_match && hdr.payload[0] == 0x08) { //Ping is the only supported message type
@@ -278,7 +280,8 @@ void ipv6_parse_incoming(EthernetFrame* raw) {
 		//UDP
 		udp_parse_incoming(hdr.payload);
 	}else if(hdr.next_header == IP_PROTOCOL_TCP) {
-		
+		//TCP
+		tcp_parse_incoming(hdr.payload, hdr.len - 32);
 	}else if(hdr.next_header == IP_PROTOCOL_ICMPv6) {
 		ICMPHeader ihdr;
 		ihdr.type = hdr.payload[0];

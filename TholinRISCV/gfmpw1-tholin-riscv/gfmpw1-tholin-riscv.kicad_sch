@@ -16698,7 +16698,6 @@
 		(in_bom yes)
 		(on_board yes)
 		(dnp no)
-		(fields_autoplaced yes)
 		(uuid "b4b62681-7932-439d-99fe-d57882c7e237")
 		(property "Reference" "U6"
 			(at 110.1441 20.32 0)
@@ -16709,8 +16708,8 @@
 				(justify left)
 			)
 		)
-		(property "Value" "~"
-			(at 107.95 19.05 0)
+		(property "Value" "27C160"
+			(at 116.332 18.796 0)
 			(effects
 				(font
 					(size 1.27 1.27)
