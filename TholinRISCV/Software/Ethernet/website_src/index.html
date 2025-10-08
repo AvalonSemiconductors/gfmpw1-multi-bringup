@@ -1,0 +1,48 @@
+<!DOCTYPE html>
+<html>
+<head>
+<title>Tholin's RISC-V</title>
+<meta charset="utf-8">
+<link rel="stylesheet" href="styles.css">
+</head>
+<body>
+	<div class="page-content">
+		<div class="welcome-header">
+			<h1>Custom Silicon Webserver</h1>
+		</div>
+		<div class="home-page-content">
+			<p>
+			Welcome to a website hosted entirely on some of my <a href="https://tholin.dev/custom_silicon_two_electric_boogaloo/">GFMPW-1 custom silicon!</a><br>
+			The RISC-V core, <a href="https://avalonsemiconductors.github.io/GFMPW-1-MULTI/tholin_riscv.html">Tholin’s RISC-V</a>, is used together with 512KiB of SRAM and 2MiB of EPROM to run a custom network stack.
+			</p>
+			<div class="shader-entry">
+				<h2>Hardware</h2>
+				<div class="flow-image-right image-border" style="max-width: 325px;">
+					<img class="img-fluid centered-shit img-2650" style="max-width: 300px;" src="/board.jpg">
+					<p class="centered-shit" style="text-align: center; max-width: 325px;">The development board. The custom silicon is on the breakout board seen at the top of the image.</p>
+				</div>
+				<p>
+				The CPU contains a RV32IM core, but little peripherals and no memory. The address/databus of the CPU is broken out on the chip pins. 32-bits of address and data are multiplexed through the same 16 bus pins over which I provided RAM and ROM on a custom development board. For RAM, 512KiB of SRAM are provided starting at address 0x00000000. For ROM, an old EPROM memory chip is used, which has a capacity of 2MiB starting at address 0x80000000 (the image of an EPROM being used with a brand new RISC-V core will never fail to amuse me).<br>
+				However, erasing and programming an EPROM takes a while, so there is an alternative "RAM only" mode, where the caravel management controller is used to initialize RAM before resetting the RISC-V core, which takes quite a while, but is faster for development.<br><br>
+				GPIO-wise, Tholin’s RISC-V contains a UART, SPI port and 5 GPIO pins. Not a lot. But the SPI port allows communication to an SD card for storage. Two GPIO lines handle a software I²C bus (currently equiped with a RTC to correctly set the "Date" HTTP response header). The UART is useful for debugging. But, of course, no built-in ability to connect to a computer network.<br>
+				Now, I could’ve "cheated" and used the UART like a modem to obtain a network connection. But I remembered my first ever project requiring custom PCBs, almost a decade ago. It involved a ENC28J60 to connect a PIC32 MCU to a network. The ENC28J60 has a simple SPI interface on one end and a 10/100mbps ethernet link on the other. Perusing AliExpress yielded a PCB with this chip and all required supporting components. However, this chip only performs basic receiving and transmitting of ethernet frames, with only simple filters (i.e. MAC-Address match). This leaves network stack implementation entirely to the software side. Very good. I wouldn’t have it any other way!<br><br>
+				Oh, there is also this cursed bodge on the SRAM chip where its ground and power pins were bent up and connected through 22ohm resistors to limit current on the data bus. This is after the SRAM chip had to replaced when the original one quickly started dying from what I figured was bus over-current due to a brief condition where SRAM and CPU may output to the bus at the same time. After adding the resistors, nothing ever broke again.
+				</p>
+			</div>
+			<div class="shader-entry">
+				<h2>Software</h2>
+				<p>
+				Most of the software codebase is the network stack. It is more than just a IPv4 TCP stack with static IP configuration. DHCP is used to configure IPv4, which means UDP is also implemented and SLAAC is used for IPv6. IPv6 is supported for all aspects of the network stack alongside IPv4 and the code will actually prefer to use IPv6 whenever possible. ICMP and ICMPv6 are also implemented and so are clients for DNS and NTP. At startup, the system configures itself with DHCP and SLAAC. The latter provides a DNS IP, but its just pointing to my router’s local IP, so a lookup to "one.one.one.one" is performed to switch DNS servers to one on the internet (which is more exciting) and uses it to find a NTP server API using a pool domain. The RTC is configured from the results of an NTP query. This whole sequence requires internet accesses over both IPv4 (NTP) and IPv6 (DNS), which works beautifully.<br><br>
+				Finally, TCP is implemented in a rather simple manner. Currently, the implementation is as simple as possible, not implementing packet retransmision. But its enough for other computers to connect to it and issue HTTP requests (of course, the network stack can make its own HTTP requests as well).<br><br>
+				HTTP is a rather simple protocol in comparison and can be implemented in not too many lines of C. Originally, the SD card was meant for storing website data, but the EPROM is a whole 2MiB, so why not fit all the files on there? This is much, much faster since the ROM is accessed at the same speed as RAM on this board and not tied to a slow serial port. So now there’s only half a bottleneck from the ENC28J60 still being connected over the same slow serial port.<br>
+				</p>
+			</div>
+		</div>
+	</div>
+	<footer>
+		<div class="page-footer">
+			Page created by <a href="https://tholin.dev/">Tholin</a>
+		</div>
+	</footer>
+</body>
+</html>

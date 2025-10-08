@@ -21,6 +21,14 @@
 #include "dns.h"
 #include "ntp.h"
 #include "tcp.h"
+#include "int_stuff.h"
+
+typedef uint32_t size_t;
+
+#include "website_src/index_html.h"
+#include "website_src/styles_css.h"
+#include "website_src/ledge_webp.h"
+#include "website_src/board_jpg.h"
 
 int putchar(int c) {
 	while((reg_stat & 2) != 0) {}
@@ -84,6 +92,24 @@ uint8_t wait_for_char(uint8_t echo) {
 void error_out() {
 	reg_porta = reg_porta | 0b100000;
 	while(1);
+}
+
+uint8_t starts_with(const char* in1, const char* in2) {
+	while(*in2) {
+		if(*in1 != *in2) return 0;
+		in1++;
+		in2++;
+	}
+	return 1;
+}
+
+uint8_t strs_equal(const char* in1, const char* in2) {
+	while(1) {
+		if(*in1 != *in2) return 0;
+		if(*in1 == 0) return 1;
+		in1++;
+		in2++;
+	}
 }
 
 #define F_CLK 15000000
@@ -203,7 +229,157 @@ void main(void) {
 		}
 	}
 	
-	volatile TCPSocket* socket;
+	{
+	volatile TCPSocket* client;
+	uint32_t int_count_orig;
+	char request_buffer[4096];
+	char itoa_buffer[128];
+	uint16_t request_buffer_pos;
+	struct Datetime time;
+	const char* get_start = "GET /";
+	const char* get_end = " HTTP/1.";
+	const char* http_404_header = "HTTP/1.1 404 Not Found\r\nServer: Tholin's RISC-V\r\nContent-Type: text/html\r\nConnection: close\r\nContent-Length: ";
+	const char* http_404_content = "\r\n\r\n<!DOCTYPE html><html><head><meta content='text/html; charset=UTF-8' http-equiv='Content-Type'><title>404 Not Found</title></head><body><center><h1>404 Not Found</h1></center><hr><center>Tholin's RISC-V</center></body></html><!-- WEH! -->\r\n\r\n";
+	const char* http_200_header = "HTTP/1.1 200 OK\r\nServer: Tholin's RISC-V\r\nConnection: close\r\n";
+	const char* content_type_html = "Content-Type: text/html\r\nContent-Length: ";
+	const char* content_type_css = "Content-Type: text/css\r\nContent-Length: ";
+	const char* content_type_webp = "Content-Type: image/webp\r\nContent-Length: ";
+	const char* content_type_jpg = "Content-Type: image/jpeg\r\nContent-Length: ";
+	const char* date_str = "\r\nDate: ";
+	printf("HTTP Server is now up on port 8088\r\n");
+	while(1) {
+		if(tcp_num_incoming() == 0) continue;
+		if(tcp_accept(&client)) continue;
+		while(client->state == 5) {asm volatile("nop");}
+		if(client->state == 0) continue;
+		//printf("Incoming connection\r\n");
+		request_buffer_pos = 0;
+		for(uint16_t i = 0; i < 4096; i++) request_buffer[i] = 0;
+		uint8_t request_done = 0;
+		uint8_t timeout = 0;
+		while(!request_done) {
+			if(request_buffer_pos >= 4096) {
+				//printf("HTTP: Request too long!\r\n");
+				tcp_close(client);
+				timeout = 1;
+				break;
+			}
+			int_count_orig = int_count;
+			while(client->remaining == 0 && client->state == 4) if(int_count - int_count_orig > 32) {
+				//printf("HTTP: Request timeout!\r\n");
+				timeout = 1;
+				break;
+			}
+			if(timeout) {
+				if(client->state == 4) tcp_close(client);
+				break;
+			}
+			if(client->state != 4) {
+				//printf("HTTP: Connection lost\r\n");
+				timeout = 1;
+				break;
+			}
+			uint16_t res = tcp_read(client, (uint8_t *)request_buffer + request_buffer_pos, 4096 - request_buffer_pos);
+			for(uint16_t i = request_buffer_pos < 4 ? 3 : request_buffer_pos - 4; i < request_buffer_pos + res; i++) {
+				if(request_buffer[i - 3] == '\r' && request_buffer[i - 2] == '\n' && request_buffer[i - 1] == '\r' && request_buffer[i] == '\n') {
+					request_done = 1;
+					break;
+				}
+			}
+			request_buffer_pos += res;
+		}
+		if(timeout) continue;
+		if(client->state != 4) continue;
+		char* temp = request_buffer;
+		while(*temp && *temp != '\r') {
+			putchar(*temp);
+			temp++;
+		}
+		putchar(13); putchar(10);
+		
+		if(!starts_with(request_buffer, get_start)) goto response_404;
+		char* request_path_start = request_buffer + 4;
+		temp = request_path_start;
+		uint16_t request_path_len = 0;
+		while(1) {
+			if(*temp == '\r' || *temp == '\n' || *temp == '\t' || *temp == 0) {
+				timeout = 1;
+				break;
+			}
+			if(*temp == ' ') break;
+			temp++;
+			request_path_len++;
+		}
+		if(timeout || request_path_len == 0) goto response_404;
+		if(request_path_start[request_path_len - 1] == '/' && request_path_len > 1) goto response_404;
+		if(request_path_start[0] != '/') goto response_404;
+		if(!starts_with(temp, get_end)) goto response_404;
+		//Could be 1.0 or 1.1
+		if((temp[8] != '0' && temp[8] != '1') || temp[9] != '\r' || temp[10] != '\n') goto response_404;
+		request_path_start[request_path_len] = 0;
+		
+		const char* content_ptr = 0;
+		uint32_t content_len = 0;
+		const char* content_type_str = 0;
+		if(request_path_len == 1 && request_path_start[0] == '/') {
+			content_ptr = index_html;
+			content_len = index_html_SIZE;
+			content_type_str = content_type_html;
+		}else if(strs_equal(request_path_start + 1, index_html_NAME)) {
+			content_ptr = index_html;
+			content_len = index_html_SIZE;
+			content_type_str = content_type_html;
+		}else if(strs_equal(request_path_start + 1, styles_css_NAME)) {
+			content_ptr = styles_css;
+			content_len = styles_css_SIZE;
+			content_type_str = content_type_css;
+		}else if(strs_equal(request_path_start + 1, ledge_webp_NAME)) {
+			content_ptr = ledge_webp;
+			content_len = ledge_webp_SIZE;
+			content_type_str = content_type_webp;
+		}else if(strs_equal(request_path_start + 1, board_jpg_NAME)) {
+			content_ptr = board_jpg;
+			content_len = board_jpg_SIZE;
+			content_type_str = content_type_jpg;
+		}
+		if(content_ptr == 0) goto response_404;
+		
+		printf("HTTP: 200\r\n");
+		itoa(content_len, itoa_buffer);
+		tcp_write(client, (uint8_t *)http_200_header, strlen(http_200_header));
+		tcp_write(client, (uint8_t *)content_type_str, strlen(content_type_str));
+		
+		char* num_end = itoa_buffer;
+		while(*num_end) num_end++;
+		if(!rtc_get_time(&time)) {
+			strcpy(num_end, date_str);
+			num_end += strlen(date_str);
+			rtc_time_str(&time, num_end);
+			while(*num_end) num_end++;
+		}
+		num_end[0] = '\r';
+		num_end[1] = '\n';
+		num_end[2] = '\r';
+		num_end[3] = '\n';
+		num_end[4] = 0;
+		tcp_write(client, (uint8_t *)itoa_buffer, strlen(itoa_buffer));
+		tcp_write(client, (uint8_t *)content_ptr, content_len);
+		goto close_and_continue;
+response_404:
+		printf("HTTP: 404\r\n");
+		itoa(strlen(http_404_content) - 4, itoa_buffer);
+		tcp_write(client, (uint8_t *)http_404_header, strlen(http_404_header));
+		tcp_write(client, (uint8_t *)itoa_buffer, strlen(itoa_buffer));
+		strcpy(itoa_buffer, "\r\nDate: ");
+		if(!rtc_get_time(&time)) rtc_time_str(&time, itoa_buffer + 8);
+		tcp_write(client, (uint8_t *)itoa_buffer, strlen(itoa_buffer));
+		tcp_write(client, (uint8_t *)http_404_content, strlen(http_404_content));
+close_and_continue:
+		client->timeout = 16;
+		continue;
+	}
+	}
+	/*volatile TCPSocket* socket;
 	tcp_connect(test_ip, 8008, &socket);
 	while(socket->state == 1) {}
 	if(socket->state == 4) {
@@ -228,5 +404,5 @@ void main(void) {
 			counter++;
 		}
 		delay_s(1);
-	}
+	}*/
 }

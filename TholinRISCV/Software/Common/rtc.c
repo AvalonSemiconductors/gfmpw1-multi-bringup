@@ -141,6 +141,97 @@ uint8_t rtc_get_temperature(float *temp) {
 	return 0;
 }
 
+void rtc_time_str(struct Datetime *time, char* buffer) {
+	switch(time->day) {
+		case MONDAY:
+			strcpy(buffer, "Mon, ");
+			break;
+		case TUESDAY:
+			strcpy(buffer, "Tue, ");
+			break;
+		case WEDNESDAY:
+			strcpy(buffer, "Wed, ");
+			break;
+		case THURSDAY:
+			strcpy(buffer, "Thu, ");
+			break;
+		case FRIDAY:
+			strcpy(buffer, "Fri, ");
+			break;
+		case SATURDAY:
+			strcpy(buffer, "Sat, ");
+			break;
+		case SUNDAY:
+			strcpy(buffer, "Sun, ");
+			break;
+		default:
+			strcpy(buffer, "ERR, ");
+			break;
+	}
+	buffer += 5;
+	itoa(time->date, buffer); while(*buffer) buffer++;
+	*buffer = ' ';
+	buffer++;
+	switch(time->month) {
+		case 1:
+			strcpy(buffer, "January ");
+			break;
+		case 2:
+			strcpy(buffer, "February ");
+			break;
+		case 3:
+			strcpy(buffer, "March ");
+			break;
+		case 4:
+			strcpy(buffer, "April ");
+			break;
+		case 5:
+			strcpy(buffer, "May ");
+			break;
+		case 6:
+			strcpy(buffer, "June ");
+			break;
+		case 7:
+			strcpy(buffer, "July ");
+			break;
+		case 8:
+			strcpy(buffer, "August ");
+			break;
+		case 9:
+			strcpy(buffer, "September ");
+			break;
+		case 10:
+			strcpy(buffer, "October ");
+			break;
+		case 11:
+			strcpy(buffer, "November ");
+			break;
+		case 12:
+			strcpy(buffer, "December ");
+			break;
+		default:
+			strcpy(buffer, "Invalid month ");
+			break;
+	}
+	while(*buffer != ' ') buffer++;
+	buffer++;
+	itoa(time->year, buffer); while(*buffer) buffer++;
+	*buffer = ' ';
+	buffer++;
+	itoa(time->hour, buffer); while(*buffer) buffer++;
+	*buffer = ':';
+	buffer++;
+	itoa(time->minute, buffer); while(*buffer) buffer++;
+	*buffer = ':';
+	buffer++;
+	itoa(time->second, buffer); while(*buffer) buffer++;
+	*buffer = ' ';
+	buffer++;
+	strcpy(buffer, "CEST");
+	buffer += 4;
+	*buffer = 0;
+}
+
 void rtc_time_print(struct Datetime *time) {
 	switch(time->day) {
 		case MONDAY:
@@ -213,7 +304,7 @@ void rtc_time_print(struct Datetime *time) {
 			puts("Invalid month ");
 			break;
 	}
-	printf("%d, ", time->year);
+	printf("%d ", time->year);
 	if(time->hour < 10) putchar('0');
 	printf("%d:", time->hour);
 	if(time->minute < 10) putchar('0');
