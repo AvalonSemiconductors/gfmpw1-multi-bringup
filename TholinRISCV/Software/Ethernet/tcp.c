@@ -79,9 +79,9 @@ uint16_t tcp_internal_write(volatile TCPSocket *socket, uint8_t flags, const uin
 		i--;
 	}
 	tcp_checksum(orig, len, socket->ip);
+	socket->tx_seq += len;
 	if(socket->ip.type) ipv6_tx(len + TCP_HEADER_LENGTH);
 	else ip_tx(len + TCP_HEADER_LENGTH);
-	socket->tx_seq += len;
 	return len;
 }
 
@@ -335,7 +335,6 @@ void tcp_parse_incoming(uint8_t* p, uint16_t packet_len, IPAddr sourceIP) {
 							data_len = TCP_MAX_BUFFER - tcp_cons[i].remaining;
 							tcp_cons[i].flags |= 1; //Set buffer overflow flag
 						}
-						if(!data_len) break;
 						volatile uint8_t* dest = tcp_cons[i].buffer;
 						uint16_t ctr = data_len;
 						while(ctr) {

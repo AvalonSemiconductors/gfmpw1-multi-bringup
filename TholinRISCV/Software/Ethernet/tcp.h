@@ -20,7 +20,7 @@ typedef struct {
 	IPAddr ip;
 	uint16_t source_port;
 	uint16_t dest_port;
-	uint32_t tx_seq;
+	volatile uint32_t tx_seq;
 	uint32_t ack_num;
 	uint16_t tx_window;
 	uint8_t state;

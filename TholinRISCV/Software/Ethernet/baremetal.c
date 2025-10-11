@@ -375,7 +375,7 @@ response_404:
 		tcp_write(client, (uint8_t *)itoa_buffer, strlen(itoa_buffer));
 		tcp_write(client, (uint8_t *)http_404_content, strlen(http_404_content));
 close_and_continue:
-		client->timeout = 16;
+		client->timeout = 32;
 		continue;
 	}
 	}
